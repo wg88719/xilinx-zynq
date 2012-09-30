@@ -1,0 +1,315 @@
+        Xilinx ZYNQ ZC702 Board Support Package
+
+
+1. About this document
+======================
+This document describes the common and non-hardware specific information
+about the Xilinx ZYNQ ZC702 Board. Please refer to README.hardware for
+hardware specific information.
+
+Dependencies
+------------
+This layer depends on the oe-core version supplied with Wind River
+Linux and the wr-kernel layer.
+
+Maintenance
+-----------
+This layer is maintained by Wind River Systems, Inc.
+Contact <support@windriver.com> or your support representative for more
+information on submitting changes.
+
+Building the xilinx-zynq layer
+--------------------------
+This layer and wr-kernel layer should be added to bblayers.conf. This
+is done automatically when using the Wind River configure wrapper.
+
+License
+-------
+Copyright (C) 2012 Wind River Systems, Inc.
+
+The right to copy, distribute or otherwise make use of this software may
+be licensed only pursuant to the terms of an applicable Wind River license
+agreement. No license to Wind River intellectual properly rights is granted
+herein. All rights not licensed by Wind River are reserved by Wind River.
+
+Source code included in tree for individual recipes is under the LICENSE
+stated in each recipe (.bb file) unless other stated.
+
+2. Board Specific Patches
+=========================
+To get a list of patches applied to the kernel specific to this BSP along
+with patch descriptions use git-whatchanged on the default kernel. For example:
+
+	# cd build/linux-windriver-<version>/linux
+	# git whatchanged standard/base..standard/xilinx-zynq
+
+
+3. Boot Instructions
+====================
+
+It is necessary to load the DTB(device tree blob) into the target's memory
+prior to booting the kernel uImage. The DTB file can be found in the export
+directory after a build or you can generate it manually with the following
+commands:
+
+	# make kds
+	# make zynq-zc702-sd.dtb
+
+The zynq-zc702-sd.dtb can then be found in below directory:
+	build/linux-windriver-3.4-r0/linux-xilinx-zynq-standard-build/arch/arm/boot
+
+Copy above DTB image to MMC/SD or QSPI Flash, and use uboot's fatload command
+to transfer it to the board before booting along with kernel image.
+
+
+3.1 Boot from MMC/SD card
+-------------------------
+
+MMC/SD can be set as the default booting device for this board and two
+partitions have been created on the MMC/SD card by default, the first one
+is booting partition while the second is root filesystem, which can be
+created by the fdisk command on the host machine.
+
+Note: please refer to the README.hardware for further details about the
+switches configuration for setting MMC/SD as the first boot device.
+
+3.1.1 Create two partitions and store the u-boot image
+------------------------------------------------------
+(1) Create two partitions on the MMC/SD card.
+
+	# fdisk /dev/mmcblk0
+
+Suppose the device node for MMC/SD card on the host machine is the
+/dev/mmcblk0.
+
+(2) Create VFAT filesystem on the first partition.
+
+	# mkfs.vfat /dev/mmcblk0p1
+
+(3) Copy BOOT.BIN file to /dev/mmcblk0p1.
+
+The BOOT.BIN file can be downloaded from the XILINX's website at
+http://www.xilinx.com/support/documentation/zc702_14-1.htm
+
+	# mkdir /mnt/sd
+	# mount -t vfat /dev/mmcblk0p1 /mnt/sd
+	# cp BOOT.BIN /mnt/sd
+	# umount /mnt/sd
+
+
+3.1.2 Copy kernel image and DTB image to /dev/mmcblk0p1
+-------------------------------------------------------
+
+	# mkdir /mnt/sd
+	# mount /dev/mmcblk0p1 /mnt/sd
+	# cd <buildprj>/export/images/
+	# cp uImage-xilinx-zynq.bin  /mnt/sd/uImage
+	# cp uImage-xilinx-zynq.dtb /mnt/sd/devicetree.dtb
+	# umount /mnt/sd
+
+
+3.1.3 Decompress MMC/SD root filesystem
+---------------------------------------
+Assuming the second partition is used for the root filesystem, format it
+with one of the most popular filesystem types supported by Linux, for
+instance, ext3 and mount it and deploy the root filesystem image there:
+
+	# mkfs.ext3 /dev/mmcblk0p2
+	# mount /dev/mmcblk0p2 /mnt/sd
+	# cd <buildprj>/export/images/
+	# tar -C /mnt/sd -jxf wrlinux-image-glibc-std-xilinx-zynq.tar.bz2
+	# umount /mnt/sd
+
+
+3.1.4 Boot from MMC/SD card
+---------------------------
+
+The default DTB supports to boot from MMC/SD device, following kernel boot
+arguments have been specified in the "chosen" DTB node:
+	console=ttyPS0,115200 earlyprintk root=/dev/mmcblk0p2 ro rootwait
+
+Load the DTB image and check out the kernel boot arguments:
+
+	# mmcinfo
+	# fatload mmc 0 0x1000000 devicetree.dtb
+	# fdt addr 0x1000000
+	# fdt print /chosen
+	chosen {
+		bootargs = "console=ttyPS0,115200 earlyprintk root=/dev/mmcblk0p2 ro rootwait";
+		linux,stdout-path = "/amba@0/uart@E0001000";
+	};
+
+Load the kernel image and boot along with the DTB image:
+
+	# mmcinfo
+	# fatload mmc 0 0x10600000 uImage
+	# bootm 0x10600000 - 0x1000000
+
+
+3.2 Boot kernel from QSPI Flash
+-------------------------------
+
+3.2.1 QSPI Flash layout
+-----------------------
+
+The storage capacity of the QSPI flash on ZC702 is 16MB, by default following
+partitions have been created on it:
+
+	Start			End		Definition
+	0x0			0x80000		qspi-fsbl	(bootloader partition, part I)
+	0x80000			0x100000	qspi-u-boot	(bootloader partition, part II)
+	0x100000		0x600000	qspi-linux
+	0x600000		0x620000	qspi-device-tree
+	0x620000		0x700000	qspi-user
+	0x700000		0x800000	qspi-scratch
+	0x800000		0x1000000	qspi-rootfs
+
+Be extra careful not to touch bootloader partition about FSBL and u-boot. If
+needed, you can alter the layout of the rest of QSPI Flash. In addition, you
+also need to modify the QSPI Flash device node in the below DTB source file to
+reflect such changes accordingly:
+	linux/arch/arm/boot/dts/zc702.dtsi
+Then re-generate the DTB image as described previously.
+
+3.2.2 Save bootloader image to the bootloader partitions
+--------------------------------------------------------
+
+	# mmcinfo
+	# fatload mmc 0 0x100000 BOOT.BIN
+	# sf probe 0
+	# sf erase 0 0x100000
+	# sf write 0x100000 0 ${filesize}
+
+Before writing the flash you need to know its current layout. Fortunately, you
+can get this information by running the 'cat /proc/mtd' command once booting up
+from MMC/SD device or NFS server. When loading the BOOT.BIN image from MMC/SD
+card, its file size will be automatically recorded in u-boot's "filesize"
+variable, which can be leveraged later.
+
+3.2.3 Update DTB to support to boot from QSPI flash
+---------------------------------------------------
+
+	# mmcinfo
+	# fatload mmc 0 0x100000 devicetree.dtb
+	# sf probe 0
+	# sf erase 0x600000 0x20000
+	# sf write 0x100000 0x600000 ${filesize}
+
+3.2.4 Copy kernel image
+-----------------------
+
+	# mmcinfo
+	# fatload mmc 0 0x100000 uImage
+	# sf probe 0
+	# sf erase 0x100000 0x500000
+	# sf write 0x100000 0x100000 ${filesize}
+
+3.2.5 Target Note
+-----------------
+
+Since the size of the qspi-rootfs partition is no more than 8MB, unable to
+accommodate a reasonable jffs2 filesystem which can be as large as 60MB,
+therefore we cannot deploy jffs2 filesystem on QSPI flash, and the DTB defaults
+to mount the root filesystem from MMC/SD card.
+
+
+3.3 NFS Root File System
+------------------------
+
+3.3.1 Prepare NFS and TFTP servers
+----------------------------------
+The files in above example can be found in <buildprj>/export/images and
+are copied to the directory of the TFTP server.
+
+3.3.2 Boot from NFS root filesystem
+-----------------------------------
+
+The DTB node "chosen" is used to specify the kernel boot arguments, in
+particular, the root device to boot from. In order to boot from root device
+other than MMC/SD card, the "chosen" DTB node needs to be changed in two
+possible approaches.
+
+Either edit the following DTB source file
+	linux/arch/arm/boot/dts/zynq-zc702-sd.dts
+and re-generate the DTB image.
+
+Or modify DTB content on-line via u-boot's fdt command:
+
+	# tftp 0x1000000 uImage-xilinx-zynq.dtb;
+	# fdt addr 0x1000000
+	# fdt print /chosen
+	chosen {
+		bootargs = "console=ttyPS0,115200 earlyprintk root=/dev/mmcblk0p2 ro rootwait";
+		linux,stdout-path = "/amba@0/uart@E0001000";
+	};
+	# setenv bootargs console=ttyPS0,115200 earlyprintk root=/dev/nfs rw nfsroot=$serverip:$rootpath ip=dhcp
+	# fdt chosen
+	# fdt print /chosen
+	chosen {
+		bootargs = "console=ttyPS0,115200 earlyprintk root=/dev/nfs rw nfsroot=$serverip:$rootpath ip=dhcp";
+		linux,stdout-path = "/amba@0/uart@E0001000";
+	};
+	# (loading kernel image from TFTP server / QSPI Flash / MMC/SD to 0x10600000)
+	# bootm 0x10600000 - 0x1000000
+
+
+4. Features
+===========
+
+4.1 USB feature
+---------------
+
+4.1.1 Introduction
+------------------
+
+The Xilinx ZYNQ ZC702 board supports USB OTG, USB host and USB device modes.
+They share one common interface, therefore any mode can only be activated
+exclusively. Jumpers can be used to switch among different modes, please
+refer to README.hardware for the detailed information.
+
+4.1.2 Usage and verification
+----------------------------
+
+USB host mode is supported by DTB by default, no extra changes to DTB is
+needed. However, in order to enable other USB modes, DTB needs to be shifted
+accordingly. One convenient approach is to alter it on-line. Alternatively,
+you can directly modify its source code and re-generate a new DTB image.
+
+Refer to the 3.1.7 section of the README.hardware file for jumper settings
+for various USB modes.
+
+1. Enable OTG host mode
+
+(1) Modify dtb for OTG mode in booting step
+
+	# tftp 0x1000000 uImage-xilinx-zynq.dtb
+	# fdt addr 0x1000000
+	# fdt set /amba/usb dr_mode otg
+
+(2) Verify the OTG device mode
+
+	Plug in B cable and connect to the host machine.
+
+	ZYNQ ZC702 board configure:
+	# ifconfig usb0 192.168.1.10
+
+	Host machine configure:
+	# sudo ifconfig usb0 192.168.1.100
+	# ping 192.168.1.10 -c 2
+	PING 192.168.1.10 (192.168.1.10) 56(84) bytes of data.
+	64 bytes from 192.168.1.10: icmp_req=1 ttl=64 time=2.06 ms
+	64 bytes from 192.168.1.10: icmp_req=2 ttl=64 time=0.286 ms
+	...
+
+(3) Switch to the OTG host mode
+
+	Replace the B cable with the A cable and enable OTG VBUS as following:
+
+	# cd /sys/devices/amba.0/e0002000.usb/xusbps-otg.0/inputs/
+	# echo 1 > a_bus_req
+
+2. USB Device mode
+
+	# tftp 0x1000000 uImage-xilinx-zynq.dtb
+	# fdt addr 0x1000000
+	# fdt set /amba/usb dr_mode peripheral

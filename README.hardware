@@ -1,0 +1,193 @@
+        XILINX ZYNQ ZC702 Board Support Package
+
+1. About this document
+======================
+
+This document describes the hardware specific information about the Xilinx
+ZYNQ ZC702 Board. Please refer to README for its common and non-hardware
+specific information.
+
+
+2. Overview
+===========
+
+This BSP supports XILINX hardware targets:
+
+	* XILINX ZYNQ ZC702 Board, rev B & rev D
+
+
+3. Hardware Boards
+==================
+
+3.1 ZC702 evaluation board
+==========================
+
+The ZC702 evaluation board for the XC7Z020 Extensible Processing Platform
+(EPP) provides a hardware environment for developing and evaluating designs
+targeting the ZynqTM-7000 XC7Z020-1CLG484C EPP. The ZC702 board provides
+features common to many embedded processing systems, including DDR3 component
+memory, a tri-mode Ethernet PHY, general purpose I/O, and two UART interfaces.
+Other features can be supported using VITA-57 FPGA mezzanine cards (FMC)
+attached to either of two low pin count (LPC) FMC connectors.
+
+
+3.1.1 Board features
+--------------------
+
+	* CPU FREQ
+	* CAN (NXP TJA1040T/VM)
+	* DVFS (ARM Cortex A9 Dynamic Power Mgmt)
+	* Ethernet (Ethernet PHY: Marvell 88E1116R)
+	* GPIO
+	* HDMI (ADV7511)
+	* I2C (TI PCA9548)
+	* PM (suspend/cpuidle)
+	* QSPI
+	* QSPI Flash (N25Q128A)
+	* RTC (Epson RTC-8564JE)
+	* MMC/SD
+	* SPI
+	* Serial (Connect to a USB-to-Serial chip:Silicon Labs CP2103G)
+	* USB OTG
+	* USB Host EHCI
+	* USB Device
+	* XADC
+
+3.1.2 Supported Features
+------------------------
+
+	+ Ethernet
+	+ GPIO
+	+ I2C
+	+ QSPI
+	+ QSPI Flash
+	+ RTC
+	+ SD/MMC
+	+ Serial
+	+ USB OTG
+	+ USB Host
+	+ USB Gadget
+	+ XADC
+
+3.1.3 Unsupported Features
+--------------------------
+
+	x CPU FREQ
+	x CAN
+	x DVFS
+	x HDMI
+	x PM
+	x SPI
+
+3.1.4 Hardware Description
+--------------------------
+
+For complete hardware details please refer to the manual/PDF that should have
+accompanied the board.
+
+
+3.1.5 Target Notes
+------------------
+
+NOTE: This BSP is only validated in following environment, if used in a
+different environment it may run into unknown issues.
+
+	Processor:             ZYNQ XC7Z020 CLG484-1
+	Board Revision:        HW-Z7-ZC702 REV B, HW-Z7-ZC702 REV D
+	BootLoader:            U-Boot
+	BootLoader Version:    U-Boot 2010.09-01914-gd2b89cd-dirty
+
+
+3.1.6 Specify boot medium
+-------------------------
+
+The ROM bootloader loads the secondary bootloader from the start or the first
+partition of the selected device and executes it, which is indeed a BOOT.BIN
+image that encapsulates the FSBL and u-boot properly.
+
+Please refer to the 3.1.1 and 3.2.2 section of the README file for the details
+about preparing the secondary bootloader on the MMC/SD card and QSPI Flash
+respectively.
+
+
+3.1.6.1 HW-Z7-ZC702 REV B
+-------------------------
+
+1. Booting from SD card
+
+The jumper configuration for booting from SD card is:
+
+	J20 2-3
+	J21 2-3
+	J22 1-2
+	J25 1-2
+	J26 2-3
+	J27 1-2
+	J28 1-2
+
+2. Booting from QSPI flash
+
+The jumper configuration for booting from the QSPI flash is:
+
+	J20 2-3
+	J21 2-3
+	J22 2-3
+	J25 1-2
+	J26 2-3
+	J27 1-2
+	J28 1-2
+
+3.1.6.2 HW-Z7-ZC702 REV D
+-------------------------
+
+1. Booting from SD card
+
+The SW16 on the front panel is used for the configuration of booting sequence,
+the default setting (00110) specifies to boot from the SD card:
+
+	SW16.1 = OFF
+	SW16.2 = OFF
+	SW16.3 = ON
+	SW16.4 = ON
+	SW16.5 = OFF
+
+2. Booting from QSPI flash
+
+Shift SW16 setting to 00010 in order to boot from QSPI Flash:
+
+	SW16.1 = OFF
+	SW16.2 = OFF
+	SW16.3 = OFF
+	SW16.4 = ON
+	SW16.5 = OFF
+
+
+3.1.7 Jumper settings for various USB modes
+-------------------------------------------
+
+The USB interface on the ZC702 board supports the host, peripheral and otg
+modes, controlled by relevant jumper configurations illustrated below:
+
+For host mode:
+
+	J7 ON
+	J33 2-3
+	J34 2-3
+	J35 1-2
+	J36 1-2
+
+For device mode:
+
+	J7 OFF
+	J33 1-2
+	J34 2-3
+	J35 1-2
+	J36 1-2
+
+For OTG mode:
+
+	J7 ON
+	J33 2-3
+	J34 1-2
+	J35 1-2
+	J36 1-2

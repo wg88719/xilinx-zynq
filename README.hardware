@@ -95,7 +95,7 @@ different environment it may run into unknown issues.
 	Processor:             ZYNQ XC7Z020 CLG484-1
 	Board Revision:        HW-Z7-ZC702 REV B, HW-Z7-ZC702 REV D
 	BootLoader:            U-Boot
-	BootLoader Version:    U-Boot 2010.09-01914-gd2b89cd-dirty
+	BootLoader Version:    U-Boot 2012.04.01
 
 
 3.1.6 Specify boot medium

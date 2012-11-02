@@ -1,0 +1,69 @@
+        XILINX ZYNQ ZC702 Qemu Support
+
+1. About this document
+======================
+
+This document describes information on running windriver linux on QEMU while
+emulating a Zynq-based machine.
+
+2. Overview
+===========
+
+2.1 Emulation features
+------------------------
+
+Supported features:
+
+	+ UP
+	+ TTC
+	+ UART (two UARTs, ttyPS0 is on second UART
+		just like on the ZC702 board)
+	+ EMAC (Two interfaces emulated, one supported in BSP)
+	+ SPI FLASH (Numonyx n25q128 x 4, 16MB)
+
+Unsupported features:
+
+	x SMP
+	x PL330
+	x SLCR
+	x GPIO
+	x DEVCFG
+	x SDHCI
+	x NOR FLASH
+	x NAND FLASH (NAND02GR3B, 256MB)
+	x I2C
+	x USB HOST EHCI
+	x QSPI
+	x CAN
+
+3. Boot Instructions
+====================
+
+3.1 Building
+------------
+
+Configure a project of xilinx-zynq with "--with-template=feature/qemu-linaro" option.
+Then build the fs and the kernel:
+
+	$ make fs
+	$ make -C build linux-windriver
+
+The qemu binary will be installed to "host-cross/usr/bin/qemu-system-arm" in
+building directory.
+
+3.2 Booting
+-----------
+
+The Xilinx qemu can be used with standard windriver qemu script as follows:
+
+	$ make start-target TARGET_VIRT_BOOT_TYPE="usernfstcp"
+
+Then Xilinx qemu boots the xilinx-zynq kernel with nfs root.
+
+4. Reference
+============
+
+Please refer to following links for more details of qemu:
+
+http://wiki.qemu.org/Main_Page
+http://qemu.weilnetz.de/qemu-doc.html

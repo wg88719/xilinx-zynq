@@ -3,7 +3,7 @@
 1. About this document
 ======================
 
-This document describes information on running windriver linux on QEMU while
+This document describes information on running windriver Linux on QEMU while
 emulating a Zynq-based machine.
 
 2. Overview
@@ -12,28 +12,43 @@ emulating a Zynq-based machine.
 2.1 Emulation features
 ------------------------
 
+Qemu emulation features:
+
+	* UP
+	* SMP
+	* TTC (Triple Timer Counters)
+	* UART (two UARTs, ttyPS0 is on second UART)
+	* PL330 (ARM PrimeCell DMA Controller)
+	* SLCR (System-Level Control Registers)
+	* DEVCFG (Device Configuration Interface)
+	* EMAC (Two interfaces emulated, one supported in BSP)
+	* GPIO (0-7 output connected to 54-61 input)
+	* SDHCI (Two interfaces emulated)
+	* SPI Flash (Numonyx n25q128 x 8, 16MB)
+	* QSPI Flash (Only linear mode emulated)
+	* I2C (two interfaces emulated, no devices attached)
+	* USB HOST EHCI
+	* CAN
+
 Supported features:
 
 	+ UP
+	+ SMP
 	+ TTC
-	+ UART (two UARTs, ttyPS0 is on second UART
-		just like on the ZC702 board)
-	+ EMAC (Two interfaces emulated, one supported in BSP)
-	+ SPI FLASH (Numonyx n25q128 x 4, 16MB)
+	+ UART
+	+ EMAC
+	+ GPIO
+	+ SDHCI
+	+ QSPI Flash (Numonyx n25q128 x 4, 16MB)
+	+ USB HOST EHCI
 
-Unsupported features:
+Unvalidated features:
 
-	x SMP
 	x PL330
+	x SPI Flash
 	x SLCR
-	x GPIO
 	x DEVCFG
-	x SDHCI
-	x NOR FLASH
-	x NAND FLASH (NAND02GR3B, 256MB)
 	x I2C
-	x USB HOST EHCI
-	x QSPI
 	x CAN
 
 3. Boot Instructions
@@ -51,6 +66,11 @@ Then build the fs and the kernel:
 The qemu binary will be installed to "host-cross/usr/bin/qemu-system-arm" in
 building directory.
 
+Then copy a dtb file for qemu to use:
+
+	$ cp export/xilinx-zynq-zynq-zc702-qemu-sd.dtb-WR<version>_standard \
+	export/xilinx-zynq-zynq-zc702-qemu-sd.dtb
+
 3.2 Booting
 -----------
 
@@ -59,6 +79,166 @@ The Xilinx qemu can be used with standard windriver qemu script as follows:
 	$ make start-target TARGET_VIRT_BOOT_TYPE="usernfstcp"
 
 Then Xilinx qemu boots the xilinx-zynq kernel with nfs root.
+
+3.3 Feature Notes
+-----------------
+
+3.3.1 GPIO
+----------
+
+The model for the GPIO causes GPIO signals 0-7 to be connected to signals
+54-61 respectively to allow testing of the GPIO. The Linux kernel is
+built to use sysfs with GPIO such that it's easy to manipulate GPIO signals
+from user space in Linux.
+____________________________
+|GPIO Signal |	GPIO Signal |
+|0	     |	54	    |
+|1	     |	55	    |
+|2	     |	56	    |
+|3	     |	57	    |
+|4	     |	58	    |
+|5	     |	59	    |
+|6	     |	60	    |
+|7	     |	61	    |
+----------------------------
+
+The following examples illustrate configuration, reading and writing of GPIO
+signals from the Linux shell prompt.
+
+At first, start Xilinx qemu and configure GPIO 0 as an output
+and GPIO 54 as an input.
+
+	root@qemu0:~# echo 0 > /sys/class/gpio/export
+	root@qemu0:~# echo 54 > /sys/class/gpio/export
+	root@qemu0:~# echo out > /sys/class/gpio/gpio0/direction
+	root@qemu0:~# echo in > /sys/class/gpio/gpio54/direction
+
+Then verify writing a value to GPIO 0 as an output gets reflected back
+to GPIO 54 as an input.
+
+	root@qemu0:~# cat /sys/class/gpio/gpio54/value
+	0
+	root@qemu0:~# cat /sys/class/gpio/gpio0/value
+	0
+	root@qemu0:~# echo 1 > /sys/class/gpio/gpio0/value
+	root@qemu0:~# cat /sys/class/gpio/gpio0/value
+	1
+	root@qemu0:~# cat /sys/class/gpio/gpio54/value
+	1
+
+3.3.2 SDHCI
+-----------
+
+The model for the SDHCI can be emulated by using a ".ext3" image as SD card.
+The following example illustrates how to mount a SD card as rootfs in Linux.
+
+	$ ./host-cross/usr/bin/qemu-system-arm -m 1024 -nographic -smp 2 \
+        -M xilinx-zynq-a9 \
+        -serial null -serial mon:stdio \
+        -kernel export/xilinx-zynq-uImage-WR<version>_standard \
+        -dtb export/xilinx-zynq-zynq-zc702-qemu-sd.dtb-WR<version>_standard \
+        -sd export/xilinx-zynq-glibc-std-standard-dist.ext3
+
+Notice:
+ * Please replace <version> with real windriver version, such as "5.0.1.0".
+ * It's assumed that the project is configured with the following option:
+   "--enable-kernel=standard --enable-rootfs=glibc_std --enable-bootimage=ext3"
+ * The SD card will appear as /dev/mmcblk0 in Linux.
+
+3.3.3 QSPI Flash
+----------------
+
+The Xilinx qemu emulates four QSPI Flash, but only the first one can be
+used in Linux now. The following example illustrates how to use an image
+to emulate the first QSPI Flash.
+
+	$ dd if=/dev/zero of=spi.img bs=1M count=16
+	$ dd if=/dev/zero of=qspi.img bs=1M count=16
+	$ ./host-cross/usr/bin/qemu-system-arm -m 1024 -nographic -smp 2 \
+        -M xilinx-zynq-a9 \
+        -serial null -serial mon:stdio \
+        -kernel export/xilinx-zynq-uImage-WR<version>_standard \
+        -dtb export/xilinx-zynq-zynq-zc702-qemu-sd.dtb-WR<version>_standard \
+        -sd export/xilinx-zynq-glibc-std-standard-dist.ext3 \
+	-mtdblock spi.img -mtdblock spi.img -mtdblock spi.img -mtdblock spi.img \
+	-mtdblock spi.img -mtdblock spi.img -mtdblock spi.img -mtdblock spi.img \
+	-mtdblock qspi.img
+
+Notice:
+ * Please replace <version> with real windriver version, such as "5.0.1.0".
+ * To use flash, the project should be configured with the following option:
+   "--enable-bootimage=ext3 --enable-kernel=standard+cfg/fs/flash_fs.scc"
+ * Because qemu also emulates 8 SPI Flash before QSPI Flash, we have to
+   provide 8 "spi.img" image files to skip these SPI Flashes.
+
+After qemu starts up, some flash operations can be executed on qemu target.
+
+	# cat /proc/mtd
+	dev:    size   erasesize  name
+	mtd0: 00080000 00010000 "qspi-fsbl"
+	mtd1: 00080000 00010000 "qspi-u-boot"
+	mtd2: 00500000 00010000 "qspi-linux"
+	mtd3: 00020000 00010000 "qspi-device-tree"
+	mtd4: 000e0000 00010000 "qspi-user"
+	mtd5: 00100000 00010000 "qspi-scratch"
+	mtd6: 00800000 00010000 "qspi-rootfs"
+	# flash_erase /dev/mtd6 0 0
+	Erasing 64 Kibyte @ 7f0000 -- 100 % complete
+
+Now mount one partition and write a file.
+
+	# mount -t jffs2 /dev/mtdblock6 /mnt/cf/
+	# mount|grep jffs
+	/dev/mtdblock6 on /media/cf type jffs2 (rw,relatime)
+	# ls /mnt/cf/
+	# echo "1234" > /mnt/cf/test
+	# cat /mnt/cf/test
+	1234
+	# umount /mnt/cf/
+	# mount -t jffs2 /dev/mtdblock6 /mnt/cf/
+	# cat /mnt/cf/test
+	1234
+
+Then reboot the qemu and remount the partition to check whether
+the file still exists.
+
+	# mount -t jffs2 /dev/mtdblock6 /mnt/cf/
+	# cat /mnt/cf/test
+	1234
+
+3.3.4 USB HOST EHCI
+-------------------
+
+The Xilinx qemu emulates one usb host ehci controller. The following example
+illustrates how to use a file to emulate a usb disk.
+
+	$ dd if=/dev/zero of=usbdisk.img bs=1M count=100
+	$ ./host-cross/usr/bin/qemu-system-arm -m 1024 -nographic -smp 2 \
+        -M xilinx-zynq-a9 \
+        -serial null -serial mon:stdio \
+        -kernel export/xilinx-zynq-uImage-WR<version>_standard \
+        -dtb export/xilinx-zynq-zynq-zc702-qemu-sd.dtb-WR<version>_standard \
+        -sd export/xilinx-zynq-glibc-std-standard-dist.ext3 \
+	-drive id=usb_disk,file=usbdisk.img,if=none \
+	-usb -device usb-storage,drive=usb_disk
+
+Notice:
+ * Please replace <version> with real windriver version, such as "5.0.1.0".
+ * It's assumed that the project is configured with the following option:
+   "--enable-kernel=standard --enable-rootfs=glibc_std --enable-bootimage=ext3"
+
+After qemu starts up, check the usb device on qemu target:
+
+	# lsusb
+	Bus 001 Device 002: ID 46f4:0001
+	Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+	# ls /dev/sda
+	/dev/sda
+
+The device of ID "46f4:0001" is the usb disk detected by the linux on qemu.
+Some disk operations can be executed on that usb disk, here is /dev/sda,
+such as fdisk and mount etc.
+
 
 4. Reference
 ============

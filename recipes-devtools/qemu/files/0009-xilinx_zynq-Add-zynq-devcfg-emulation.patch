@@ -1,0 +1,425 @@
+From 050f93bac36f35f0b1dad6e5fd2d884ce1acefd9 Mon Sep 17 00:00:00 2001
+From: Liming Wang <liming.wang@windriver.com>
+Date: Mon, 19 Nov 2012 17:39:28 +0800
+Subject: [PATCH 09/26] xilinx_zynq: Add zynq devcfg emulation
+
+Add zynq devcfg from qemu-xarm git tree:
+git://git.xilinx.com/qemu-xarm.git
+
+Signed-off-by: Liming Wang <liming.wang@windriver.com>
+---
+ hw/arm/Makefile.objs |    1 +
+ hw/xilinx_devcfg.c   |  371 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ hw/xilinx_zynq.c     |    6 +
+ 3 files changed, 378 insertions(+)
+ create mode 100644 hw/xilinx_devcfg.c
+
+diff --git a/hw/arm/Makefile.objs b/hw/arm/Makefile.objs
+index 3eb2096..1e16059 100644
+--- a/hw/arm/Makefile.objs
++++ b/hw/arm/Makefile.objs
+@@ -4,6 +4,7 @@ obj-y += sdhci.o
+ obj-y += xilinx_zynq.o zynq_slcr.o
+ obj-y += xilinx_spips.o
+ obj-y += zynq_gpio.o
++obj-y += xilinx_devcfg.o
+ obj-y += arm_gic.o arm_gic_common.o
+ obj-y += realview_gic.o realview.o arm_sysctl.o arm11mpcore.o a9mpcore.o
+ obj-y += exynos4210_gic.o exynos4210_combiner.o exynos4210.o
+diff --git a/hw/xilinx_devcfg.c b/hw/xilinx_devcfg.c
+new file mode 100644
+index 0000000..815b8cf
+--- /dev/null
++++ b/hw/xilinx_devcfg.c
+@@ -0,0 +1,371 @@
++/*
++ * QEMU model of the Xilinx Devcfg Interface
++ *
++ * Copyright (c) 2011 Peter A.G. Crosthwaite (peter.crosthwaite@petalogix.com)
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this software and associated documentation files (the "Software"), to deal
++ * in the Software without restriction, including without limitation the rights
++ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ * copies of the Software, and to permit persons to whom the Software is
++ * furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
++ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++ * THE SOFTWARE.
++ */
++
++#include "sysbus.h"
++#include "sysemu.h"
++#include "ptimer.h"
++
++/* FIXME: get rid of hardcoded nastiness */
++
++#define FREQ_HZ 900000000
++
++#define QEMU_DEBUG_PREFIX "xilinx_devcfg"
++
++#ifdef XILINX_DEVCFG_FILE_DEBUG
++#define FILE_DEBUG XILINX_DEVCFG_FILE_DEBUG
++#endif
++
++#ifdef XILINX_DEVCFG_ERR_DEBUG
++#define ERR_DEBUG
++#endif
++
++/* ctrl register */
++#define R_CTRL            (0x00 /4)
++    #define FORCE_RST            (1 << 31) /* Not supported, writes ignored -- ADD TO TICKET */
++    #define PCAP_PR              (1 << 27) /* Forced to 0 on bad unlock */
++    #define PCAP_MODE            (1 << 26)
++    #define USER_MODE            (1 << 15)
++    #define PCFG_AES_FUSE        (1 << 12) /* locked by AES_FUSE_LOCK */
++    #define PCFG_AES_EN          (7 << 9) /* locked by AES_EN_LOCK, forced to 0 on bad unlock */
++    #define SEU_EN               (1 << 8) /* locked by SEU_LOCK */
++    #define SEC_EN               (1 << 7) /* locked by SEC_LOCK */
++    #define SPNIDEN              (1 << 6) /* locked by DBG_LOCK */
++    #define SPIDEN               (1 << 5) /* locked by DBG_LOCK */
++    #define NIDEN                (1 << 4) /* locked by DBG_LOCK */
++    #define DBGEN                (1 << 3) /* locked by DBG_LOCK */
++    #define DAP_EN               (7 << 0) /* locked by DBG_LOCK */
++#define R_CTRL_RO       (1 << 28) | (0x7f << 16) | USER_MODE
++#define R_CTRL_RESET    PCAP_PR | PCAP_MODE
++
++/* lock register */
++#define R_LOCK          (0x04 /4)
++    #define AES_FUSE_LOCK        (1 << 4)
++    #define AES_EN_LOCK          (1 << 3)
++    #define SEU_LOCK             (1 << 2)
++    #define SEC_LOCK             (1 << 1)
++    #define DBG_LOCK             (1 << 0)
++#define R_LOCK_RO (~0x1F)
++
++/* bits in ctrl affected by DBG_LOCK */
++#define R_CTRL_DBG_LOCK_MASK SPNIDEN | SPIDEN | NIDEN | DBGEN | DAP_EN
++
++/* CFG register */
++#define R_CFG           (0x08 /4)
++    #define RFIFO_TH             (2 << 10)
++    #define WFIFO_TH             (2 << 8)
++    #define DISABLE_SRC_INC      (1 << 5)
++    #define DISABLE_DST_INC      (1 << 4)
++#define R_CFG_RO 0xFFFFF800
++#define R_CFG_RESET 0x50B
++
++/* INT_STS register */
++#define R_INT_STS       (0x0C /4)
++    #define PSS_FST_CFG_B_INT    (1 << 30)
++    #define RX_FIFO_OV_INT       (1 << 18)
++    #define WR_FIFO_LVL_INT      (1 << 17)
++    #define RD_FIFO_LVL_INT      (1 << 16)
++    #define DMA_CMD_ERR_INT      (1 << 15)
++    #define DMA_Q_OV_INT         (1 << 14)
++    #define DMA_DONE_INT         (1 << 13)
++    #define DMA_P_DONE_INT       (1 << 12)
++    #define P2D_LEN_ERR_INT      (1 << 11)
++    #define PCFG_DONE_INT        (1 << 2)
++#define R_INT_STS_RO ~0 /* INT_STS uses a different write handler so its all read only */
++#define R_INT_STS_RESET 0x88020010
++
++/* INT_MASK register */
++#define R_INT_MASK      (0x10 / 4)
++#define R_INT_MASK_RO R_INT_STS_RO
++#define R_INT_MASK_RESET (~0)
++
++/* STATUS register */
++#define R_STATUS        (0x14 / 4)
++    #define DMA_CMD_Q_F         (1 << 31)
++    #define DMA_CMD_Q_E         (1 << 30)
++    #define DMA_DONE_CNT        (2 << 28)
++    #define RX_FIFO_LVL         (0x1f << 20)
++    #define TX_FIFO_LVL         (0x7f << 12)
++    #define PSS_FST_CFG_B       (1 << 10)
++#define R_STATUS_RESET 0x40000820
++#define R_STATUS_RO ~0
++
++#define R_DMA_SRC_ADDR  (0x18 / 4)
++#define R_DMA_DST_ADDR  (0x1C / 4)
++#define R_DMA_SRC_LEN   (0x20 / 4)
++#define R_DMA_SRC_LEN_RO 0xF8000000
++#define R_DMA_DEST_LEN  (0x24 / 4)
++#define R_DMA_DEST_LEN_RO 0xF8000000
++#define R_ROM_SHADOW    (0x28 / 4)
++#define R_SW_ID         (0x30 / 4)
++#define R_UNLOCK        (0x34 / 4)
++
++#define R_UNLOCK_MAGIC 0x757BDF0D
++
++/* MCTRL register */
++#define R_MCTRL         (0x80 / 4)
++    #define INT_PCAP_LPBK       (1 << 4)
++    #define RFIFO_FLUSH         (1 << 1)
++    #define WFIFO_FLUSH         (1 << 0)
++#define R_MCTRL_RO (~0x12)
++#define R_MCTRL_RESET 0
++
++#define XADCIF_MCTRL    (0x118 / 4)
++#define R_MAX (XADCIF_MCTRL + 1)
++
++#define RX_FIFO_LEN 32
++#define TX_FIFO_LEN 128
++
++struct XilinxDevcfgDMACommand
++{
++    uint32_t src_addr;
++    uint32_t dest_addr;
++    uint32_t src_len;
++    uint32_t dest_len;
++};
++
++struct XilinxDevcfg
++{
++    SysBusDevice busdev;
++    MemoryRegion iomem;
++
++    qemu_irq irq;
++    int irqline;
++
++    int lock;
++
++    QEMUBH *timer_bh;
++    ptimer_state *timer;
++
++    /* FIXME: make command qemu length a qdev prop */
++    struct XilinxDevcfgDMACommand dma_command_fifo[10];
++    int dma_command_fifo_num;
++
++    uint32_t regs[R_MAX];
++    uint32_t regs_ro[R_MAX];
++};
++
++static int lsb_pos32(uint32_t x) {
++    int i;
++    for (i = 0; i < 32; i++)
++        if (x & (1 << i))
++            return i;
++    return -1;
++}
++
++static void update_ixr (struct XilinxDevcfg *s) {
++
++    /* FIXME: come up with a policy for setting the FIFO progress interrupts
++     * (when there are no fifos */
++
++    /* drive external interupt pin */
++    int new_irqline = !!(~s->regs[R_INT_MASK] & s->regs[R_INT_STS]);
++    if (new_irqline != s->irqline) {
++        s->irqline = new_irqline;
++        qemu_set_irq(s->irq, s->irqline);
++    }
++}
++
++static void xilinx_devcfg_reset (struct XilinxDevcfg *s) {
++    /* FIXME: zero out s-regs, but figure out presevations for power-on-reset bahaviour ? */
++    s->regs[R_CTRL] = R_CTRL_RESET;
++    s->regs_ro[R_CTRL] = R_CTRL_RO;
++
++    s->regs_ro[R_LOCK] = R_LOCK_RO;
++
++    s->regs[R_CFG] = R_CFG_RESET;
++    s->regs_ro[R_CFG] = R_CFG_RO;
++
++    s->regs[R_INT_STS] = R_INT_STS_RESET;
++    s->regs_ro[R_INT_STS] = R_INT_STS_RO;
++    
++    s->regs[R_INT_MASK] = R_INT_MASK_RESET;
++    s->regs_ro[R_INT_MASK] = R_INT_MASK_RO;
++    
++    s->regs[R_STATUS] = R_STATUS_RESET;
++    s->regs_ro[R_STATUS] = R_STATUS_RO;
++    
++    s->regs_ro[R_DMA_SRC_LEN] = R_DMA_SRC_LEN_RO;
++
++    s->regs_ro[R_DMA_DEST_LEN] = R_DMA_DEST_LEN_RO;
++}
++
++static uint64_t devcfg_read (void *opaque, uint64_t addr,
++        unsigned size)
++{
++    struct XilinxDevcfg *s = opaque;
++    uint32_t ret;
++
++    addr >>= 2;
++    switch (addr)
++    {
++        //TODO: implement any read side effects
++    }
++    ret = s->regs[addr];
++    return ret;
++}
++
++/* FIXME: QDEV prop this magic number */
++#define BTT_MAX 0x400
++
++#define min(a,b) ((a)<(b)?(a):(b))
++
++static void xilinx_devcfg_dma_go(void *opaque) {
++    struct XilinxDevcfg *s = opaque;
++    uint8_t buf[BTT_MAX];
++    struct XilinxDevcfgDMACommand *dmah = s->dma_command_fifo;
++    uint32_t btt = BTT_MAX;
++
++    btt = min(btt,dmah->src_len);
++    if (s->regs[R_MCTRL] & INT_PCAP_LPBK) {
++        btt = min(btt,dmah->dest_len);
++    }
++    /* TODO: implement keyhole mode */
++    cpu_physical_memory_rw(dmah->src_addr, buf, btt, 0);
++    dmah->src_len -= btt;
++    dmah->src_addr += btt;
++    if (s->regs[R_MCTRL] & INT_PCAP_LPBK) {
++        cpu_physical_memory_rw(dmah->dest_addr, buf, btt, 1);
++        dmah->dest_len -= btt;
++        dmah->dest_addr += btt;
++    }
++    if (!dmah->src_len && !dmah->dest_len) {
++        s->regs[R_INT_STS] |= DMA_DONE_INT | DMA_P_DONE_INT;
++        s->dma_command_fifo_num = s->dma_command_fifo_num - 1;
++    }
++    update_ixr(s);
++    if (s->dma_command_fifo_num) { /* there is still work to do */
++        ptimer_set_freq(s->timer, FREQ_HZ);
++        /* FIXME: qdev prop this bandwidth magic number */
++        ptimer_set_count(s->timer, 10000);
++        ptimer_run(s->timer, 1);
++    }
++}
++
++static void
++devcfg_write (void *opaque, uint64_t addr, uint64_t value,
++        unsigned size)
++{
++    uint32_t delta0, delta1;
++    uint8_t aes_en;
++    struct XilinxDevcfg *s = opaque;
++    addr >>= 2;
++    if (s->lock && addr != R_UNLOCK)
++        return;
++    delta1 = value & ~s->regs_ro[addr];
++    delta0 = ~value & ~s->regs_ro[addr]; /* TODO: may be un-needed */
++    s->regs[addr] = (s->regs[addr] & s->regs_ro[addr]) | delta1;
++    switch (addr)
++    {
++        case R_CTRL:
++            aes_en = s->regs[R_CTRL] & PCFG_AES_EN >> lsb_pos32(PCFG_AES_EN);
++            if (aes_en != 0 && aes_en != 7) {
++            }
++
++        case R_LOCK:
++            s->regs_ro[R_LOCK] |= delta1; /* set only */
++            if (delta1 & AES_FUSE_LOCK)
++                s->regs_ro[R_CTRL] |= PCFG_AES_FUSE;
++            if (delta1 & AES_EN_LOCK)
++                s->regs_ro[R_CTRL] |= PCFG_AES_EN;
++            if (delta1 & SEU_LOCK)
++                s->regs_ro[R_CTRL] |= SEU_EN;
++            if (delta1 & SEC_LOCK)
++                s->regs_ro[R_CTRL] |= SEC_EN; /* TODO: investigate locking of USER_MODE bit */
++            if (delta1 & DBG_LOCK)
++                s->regs[R_CTRL] |= R_CTRL_DBG_LOCK_MASK;
++            break;
++
++        case R_INT_STS:
++            if (!s->lock)
++                s->regs[R_INT_STS] &= ~delta1; /* write to clear */
++            break;
++
++        /* TODO: add state sequence to enforce correct ordering of DMA operand writes as per TRM */
++        case R_DMA_DEST_LEN:
++            /* TODO: implement command queue overflow check and interrupt */
++            s->dma_command_fifo[s->dma_command_fifo_num].src_addr = s->regs[R_DMA_SRC_ADDR] & ~0x3UL;
++            s->dma_command_fifo[s->dma_command_fifo_num].dest_addr = s->regs[R_DMA_DST_ADDR] & ~0x3UL;
++            s->dma_command_fifo[s->dma_command_fifo_num].src_len = s->regs[R_DMA_SRC_LEN] << 2;
++            s->dma_command_fifo[s->dma_command_fifo_num].dest_len = s->regs[R_DMA_DEST_LEN] << 2;
++            s->dma_command_fifo_num = s->dma_command_fifo_num + 1;
++            xilinx_devcfg_dma_go(s);
++
++        case R_UNLOCK:
++            if (value == R_UNLOCK_MAGIC) {
++                s->lock = 0;
++            } else if (s->lock) {/* bad unlcok attempt */
++                s->regs[R_CTRL] &= ~PCAP_PR;
++                s->regs[R_CTRL] &= ~PCFG_AES_EN;
++            }
++            break;       
++    }
++    update_ixr(s);
++}
++
++static const MemoryRegionOps devcfg_ops = {
++    .read = devcfg_read,
++    .write = devcfg_write,
++    .endianness = DEVICE_NATIVE_ENDIAN,
++};
++
++
++static int xilinx_devcfg_init(SysBusDevice *dev)
++{
++    struct XilinxDevcfg *s = FROM_SYSBUS(typeof (*s), dev);
++
++
++    s->timer_bh = qemu_bh_new(xilinx_devcfg_dma_go, s);
++    s->timer = ptimer_init(s->timer_bh);
++
++    sysbus_init_irq(dev, &s->irq);
++
++    memory_region_init_io(&s->iomem, &devcfg_ops, s, "devcfg", R_MAX*4);
++    sysbus_init_mmio(dev, &s->iomem);
++
++    xilinx_devcfg_reset(s);
++    return 0;
++}
++
++static void xilinx_devcfg_class_init(ObjectClass *klass, void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(klass);
++    SysBusDeviceClass *k = SYS_BUS_DEVICE_CLASS(klass);
++
++    k->init = xilinx_devcfg_init;
++    dc->reset = xilinx_devcfg_reset;
++}
++
++static TypeInfo xilinx_devcfg_info = {
++    .name           = "xilinx,devcfg",
++    .parent         = TYPE_SYS_BUS_DEVICE,
++    .instance_size  = sizeof(struct XilinxDevcfg),
++    .class_init     = xilinx_devcfg_class_init,
++};
++
++static void xilinx_devcfg_register_types(void)
++{
++    type_register_static(&xilinx_devcfg_info);
++}
++
++type_init(xilinx_devcfg_register_types)
+diff --git a/hw/xilinx_zynq.c b/hw/xilinx_zynq.c
+index 6a9842e..162befc 100644
+--- a/hw/xilinx_zynq.c
++++ b/hw/xilinx_zynq.c
+@@ -235,6 +235,12 @@ static void zynq_init(QEMUMachineInitArgs *args)
+         sysbus_connect_irq(busdev, n + 1, pic[dma_irqs[n] - IRQ_OFFSET]);
+     }
+ 
++    dev = qdev_create(NULL, "xilinx,devcfg");
++    qdev_init_nofail(dev);
++    busdev = sysbus_from_qdev(dev);
++    sysbus_connect_irq(busdev, 0, pic[40-IRQ_OFFSET]);
++    sysbus_mmio_map(busdev, 0, 0xF8007000);
++
+     zynq_binfo.ram_size = ram_size;
+     zynq_binfo.kernel_filename = kernel_filename;
+     zynq_binfo.kernel_cmdline = kernel_cmdline;
+-- 
+1.7.9.5
+

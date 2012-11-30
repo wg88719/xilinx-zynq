@@ -1,0 +1,703 @@
+From 6342909c64892aad6a6cbc958aa4ef6a0eaff4c2 Mon Sep 17 00:00:00 2001
+From: Liming Wang <liming.wang@windriver.com>
+Date: Fri, 16 Nov 2012 10:53:03 +0800
+Subject: [PATCH 06/26] xilinx_zynq: Add zynq gpio emulation
+
+Add zynq gpio from qemu-xarm git tree:
+git://git.xilinx.com/qemu-xarm.git
+
+Signed-off-by: Liming Wang <liming.wang@windriver.com>
+---
+ hw/arm/Makefile.objs |    1 +
+ hw/xilinx_zynq.c     |    2 +
+ hw/zynq_gpio.c       |  653 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 656 insertions(+)
+ create mode 100644 hw/zynq_gpio.c
+
+diff --git a/hw/arm/Makefile.objs b/hw/arm/Makefile.objs
+index 976724c..3eb2096 100644
+--- a/hw/arm/Makefile.objs
++++ b/hw/arm/Makefile.objs
+@@ -3,6 +3,7 @@ obj-y += arm_boot.o
+ obj-y += sdhci.o
+ obj-y += xilinx_zynq.o zynq_slcr.o
+ obj-y += xilinx_spips.o
++obj-y += zynq_gpio.o
+ obj-y += arm_gic.o arm_gic_common.o
+ obj-y += realview_gic.o realview.o arm_sysctl.o arm11mpcore.o a9mpcore.o
+ obj-y += exynos4210_gic.o exynos4210_combiner.o exynos4210.o
+diff --git a/hw/xilinx_zynq.c b/hw/xilinx_zynq.c
+index d3351cf..520b9b2 100644
+--- a/hw/xilinx_zynq.c
++++ b/hw/xilinx_zynq.c
+@@ -188,6 +188,8 @@ static void zynq_init(QEMUMachineInitArgs *args)
+     sysbus_create_varargs("cadence_ttc", 0xF8002000,
+             pic[69-IRQ_OFFSET], pic[70-IRQ_OFFSET], pic[71-IRQ_OFFSET], NULL);
+ 
++    sysbus_create_varargs("zynq_gpio", 0xE000A000, pic[52-IRQ_OFFSET], NULL);
++
+     dev = qdev_create(NULL, "sysbus_sdhci");
+     dinfo = drive_get(IF_SD, 0, 0);
+     if (dinfo) {
+diff --git a/hw/zynq_gpio.c b/hw/zynq_gpio.c
+new file mode 100644
+index 0000000..c7f50a5
+--- /dev/null
++++ b/hw/zynq_gpio.c
+@@ -0,0 +1,653 @@
++/*
++ * Xilinx Zynq GPIO Model
++ *
++ * Copyright (c) 20011 Xilinx Inc.
++ * Written by M.Habib
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ *
++ * You should have received a copy of the GNU General Public
++ * License along with this program; if not, write to the Free
++ * Software Foundation, Inc., 675 Mass Ave, Cambridge, MA
++ * 02139, USA.
++ */
++
++
++#include "sysbus.h"
++
++#define ZYNQ_BANK_0_FIRST_PIN 0
++#define ZYNQ_BANK_1_FIRST_PIN 32
++#define ZYNQ_BANK_2_FIRST_PIN 54
++#define ZYNQ_BANK_3_FIRST_PIN 86
++
++#define ZYNQ_BANK_0_LAST_PIN 31
++#define ZYNQ_BANK_1_LAST_PIN 53
++#define ZYNQ_BANK_2_LAST_PIN 85
++#define ZYNQ_BANK_3_LAST_PIN 117
++
++#define ZYNQ_BANK_0_TOTAL_PINS 32
++#define ZYNQ_BANK_1_TOTAL_PINS 22
++#define ZYNQ_BANK_2_TOTAL_PINS 32
++#define ZYNQ_BANK_3_TOTAL_PINS 32
++
++#define ZYNQ_GPIO_BANK_0_ID  0
++#define ZYNQ_GPIO_BANK_1_ID  1
++#define ZYNQ_GPIO_BANK_2_ID  2
++#define ZYNQ_GPIO_BANK_3_ID  3
++
++#define ZYNQ_GPIO_REG_GROUP0  0
++#define ZYNQ_GPIO_REG_GROUP1  1
++#define ZYNQ_GPIO_REG_GROUP2  2
++#define ZYNQ_GPIO_REG_GROUP3  3
++
++#define ZYNQ_GPIO_TOTAL_BANKS 4
++
++typedef struct {
++
++	uint32_t reg_data;
++	uint32_t reg_mask;
++	uint32_t reg_pins;
++	uint32_t reg_bypass;
++	uint32_t reg_direct;
++	uint32_t reg_enable;
++	uint32_t reg_int_mask;
++	uint32_t reg_int_status;
++	uint32_t reg_int_type;
++	uint32_t reg_int_polar;
++	uint32_t reg_int_any;
++	uint32_t num_of_pins;
++	uint32_t number;
++	uint32_t cur_data;
++
++} zynq_gpio_bank_state;
++
++typedef struct {
++	SysBusDevice busdev;
++	MemoryRegion iomem;
++	zynq_gpio_bank_state *gpio_bank[ZYNQ_GPIO_TOTAL_BANKS];
++	qemu_irq irq;
++} zynq_gpio_state;
++
++static uint32_t zynq_pin_table[] = {
++	ZYNQ_BANK_0_LAST_PIN,
++	ZYNQ_BANK_1_LAST_PIN,
++	ZYNQ_BANK_2_LAST_PIN,
++	ZYNQ_BANK_3_LAST_PIN
++};
++
++#define LOOPBACK_PINS 8
++
++uint32_t zynq_gpio_loopback [][2]= {
++	{54,0},
++	{55,1},
++	{56,2},
++	{57,3},
++	{58,4},
++	{59,5},
++	{60,6},
++	{61,7}
++};
++
++void zynq_gpio_input_pin_update (uint32_t pin_num, uint8_t level, uint8_t edge);
++
++static void zynq_gpio_update(void *opaque, zynq_gpio_bank_state *s)
++{
++	zynq_gpio_state *op = (zynq_gpio_state *) opaque;
++	uint32_t flags;
++
++	flags = s->reg_int_status & s->reg_int_mask;
++
++	qemu_set_irq(op->irq, flags != 0);
++}
++
++static inline void zynq_get_bank_of_pin(uint32_t pin_num,
++		uint32_t *bank_num,
++		uint32_t *bank_pin_num)
++{
++	for (*bank_num = 0; *bank_num < ZYNQ_GPIO_TOTAL_BANKS; (*bank_num)++)
++		if (pin_num <= zynq_pin_table[*bank_num])
++			break;
++
++	if (*bank_num == 0)
++		*bank_pin_num = pin_num;
++	else
++		*bank_pin_num = pin_num %
++			(zynq_pin_table[*bank_num - 1] + 1);
++}
++
++static inline void zynq_get_pin_of_bank(uint32_t *pin_num,
++		uint32_t bank_num,
++		uint32_t bank_pin_num)
++{
++	switch (bank_num) {
++		case 0:
++			*pin_num = bank_pin_num;
++			break;
++
++		case 1:
++			*pin_num = 32 + bank_pin_num;
++			break;
++
++		case 2:
++			*pin_num = 54 + bank_pin_num;
++			break;
++
++		case 3:
++			*pin_num = 86 + bank_pin_num;
++			break;
++
++		default:
++			break;
++	}
++}
++
++static void zynq_gpio_update_loopback(void *opaque, zynq_gpio_bank_state *s)
++{
++	uint32_t first_pin = 0;
++	uint32_t last_pin = 0;
++	uint32_t pin_num;
++	uint32_t bank_num;
++	uint32_t out_pin_value , in_pin_value;
++	uint8_t  n, m;
++
++	zynq_gpio_state *op = (zynq_gpio_state *) opaque;
++
++	switch (s->number) {
++		case 0:
++			first_pin = ZYNQ_BANK_0_FIRST_PIN;
++			last_pin = ZYNQ_BANK_0_LAST_PIN;
++			break;
++
++		case 1:
++			first_pin = ZYNQ_BANK_1_FIRST_PIN;
++			last_pin = ZYNQ_BANK_1_LAST_PIN;
++			break;
++
++		case 2:
++			first_pin = ZYNQ_BANK_2_FIRST_PIN;
++			last_pin = ZYNQ_BANK_2_LAST_PIN;
++			break;
++
++		case 3:
++			first_pin = ZYNQ_BANK_3_FIRST_PIN;
++			last_pin = ZYNQ_BANK_3_LAST_PIN;
++			break;
++
++		default:
++			break;
++	}
++
++	for (n = first_pin; n <= last_pin; n++)
++	{
++		/* check to see the bank we are dealing with
++		 * has loopback to input pin(s) */
++		for (m = 0; m < LOOPBACK_PINS; m++)
++		{
++			if (n == zynq_gpio_loopback[m][1]) {
++				/* Yes, this pin belongs to this bank */
++				zynq_get_bank_of_pin(zynq_gpio_loopback[m][1], &bank_num,
++						&pin_num);
++
++
++				/* Get the new value of this pin */
++				out_pin_value = (s->reg_data) & (1 << pin_num);
++
++				/* Get the parameters for the input pin */
++				zynq_get_bank_of_pin(zynq_gpio_loopback[m][0], &bank_num,
++						&pin_num);
++
++				/* Get its current value */
++				in_pin_value = (op->gpio_bank[bank_num]->reg_pins) &
++					(1 << pin_num);
++
++				/* do we need to update its value */
++				if (out_pin_value != in_pin_value) {
++					in_pin_value = out_pin_value;
++
++					/* current value of its bank */
++					out_pin_value = op->gpio_bank[bank_num]->reg_data;
++					out_pin_value &= (1 << pin_num);
++
++					if (in_pin_value) {
++						op->gpio_bank[bank_num]->reg_data |= in_pin_value;
++						op->gpio_bank[bank_num]->reg_pins |= in_pin_value;
++					}
++					else {
++						in_pin_value = (1 << pin_num);
++						op->gpio_bank[bank_num]->reg_data &= ~(in_pin_value);
++						op->gpio_bank[bank_num]->reg_pins &= ~(in_pin_value);
++					}
++
++					op->gpio_bank[bank_num]->reg_int_status |= (1 << pin_num);
++				}
++			}
++		}
++	}
++}
++
++
++static zynq_gpio_bank_state *zynq_gpio_from_addr (void *opaque,
++		uint32_t offset, uint32_t multi)
++{
++	unsigned int index;
++	zynq_gpio_state *s = (zynq_gpio_state *)opaque;
++
++	switch (multi) {
++		case 1:
++			index = (offset - 0x40) >> 2;
++			break;
++
++		case 2:
++			index = (offset - 0x60) >> 2;
++			break;
++
++		case 3:
++			index = (offset - 0x200) >> 6;
++			break;
++
++		default:
++			index = (offset) >> 3;
++			break;
++	}
++
++	return (s->gpio_bank[index]);
++}
++
++static void zynq_gpio_bank_int (zynq_gpio_bank_state *s, uint32_t value,
++		uint32_t enable)
++{
++	uint32_t int_value = ~(s->reg_int_mask);
++
++
++	if (enable) {
++		int_value |= value;
++	}
++	else {
++		int_value &= ~(value);
++	}
++
++	s->reg_int_mask = ~(int_value);
++}
++
++static void zynq_gpio_bank_data_write (zynq_gpio_bank_state *s, uint32_t value,
++		uint32_t flags)
++{
++	uint32_t mask = value;
++
++	if (flags == 3) {
++		/* DW data */
++		s->reg_data = value;
++		return;
++	}
++
++	if (flags == 1) {
++		/* LW data */
++		mask >>= 16;
++		mask |= 0xFFFF0000;
++
++		/* reset bits to be changed */
++		s->reg_data &= mask;
++
++		mask = (~mask) & 0x0000FFFF;
++		value &= mask;
++		s->reg_data |= value;
++		return;
++	}
++
++	if (flags == 2) {
++		/* LW data */
++		mask |= 0x0000FFFF;
++
++		/* reset bits to be changed */
++		s->reg_data &= mask;
++
++		mask = (~mask) & 0xFFFF0000;
++		value <<= 16;
++
++		value &= mask;
++		s->reg_data |= value;
++		return;
++	}
++
++}
++
++
++static void zynq_gpio_bank_data_read (zynq_gpio_bank_state *s, uint32_t *value,
++		uint32_t flags)
++{
++	*value = s->reg_data;
++
++	if (flags == 1) {
++		*value &= 0x00FF;
++	}
++
++	if (flags == 2) {
++		*value &= 0xFF00;
++	}
++
++}
++
++static uint64_t zynq_gpio_read (void *opaque, uint32_t offset,
++		unsigned size)
++{
++	zynq_gpio_bank_state *s;
++	uint32_t value;
++
++	switch (offset) {
++		/* data / mask LW */
++		case 0x0000:
++		case 0x0008:
++		case 0x0010:
++		case 0x0018:
++
++			s = zynq_gpio_from_addr(opaque, offset, ZYNQ_GPIO_REG_GROUP0);
++			zynq_gpio_bank_data_read (s, &value, 1);
++			break;
++
++			/* data / mask HW */
++		case 0x0004:
++		case 0x000c:
++		case 0x0014:
++		case 0x001c:
++
++			s = zynq_gpio_from_addr(opaque, offset, ZYNQ_GPIO_REG_GROUP0);
++			zynq_gpio_bank_data_read (s, &value, 2);
++			break;
++
++			/* data DW */
++		case 0x0040:
++		case 0x0044:
++		case 0x0048:
++		case 0x004c:
++
++			s = zynq_gpio_from_addr(opaque, offset, ZYNQ_GPIO_REG_GROUP1);
++			zynq_gpio_bank_data_read (s, &value, 3);
++			break;
++
++			/* pins DW */
++		case 0x0060:
++		case 0x0064:
++		case 0x0068:
++		case 0x006c:
++
++			s = zynq_gpio_from_addr(opaque, offset, ZYNQ_GPIO_REG_GROUP2);
++			value = s->reg_pins;
++			break;
++
++			/* bypass */
++		case 0x200:
++		case 0x240:
++		case 0x280:
++		case 0x2c0:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			value = s->reg_bypass;
++			break;
++
++			/* direction */
++		case 0x204:
++		case 0x244:
++		case 0x284:
++		case 0x2c4:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			value = s->reg_direct;
++			break;
++
++			/* o enable */
++		case 0x208:
++		case 0x248:
++		case 0x288:
++		case 0x2c8:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			value = s->reg_enable;
++			break;
++
++			/* mask */
++		case 0x20c:
++		case 0x24c:
++		case 0x28c:
++		case 0x2cc:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			value = s->reg_int_mask;
++			break;
++
++			/* status */
++		case 0x218:
++		case 0x258:
++		case 0x298:
++		case 0x2d8:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			value = s->reg_int_status;
++			break;
++
++			/* type */
++		case 0x21c:
++		case 0x25c:
++		case 0x29c:
++		case 0x2dc:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			value = s->reg_int_type;
++			break;
++
++			/* Polarity */
++		case 0x220:
++		case 0x260:
++		case 0x2a0:
++		case 0x2e0:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			value = s->reg_int_polar;
++			break;
++
++			/* Any */
++		case 0x224:
++		case 0x264:
++		case 0x2a4:
++		case 0x2e4:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			value = s->reg_int_any;
++			break;
++
++		default:
++			return 0;
++
++	}
++
++	return value;
++}
++
++static void zynq_gpio_write (void *opaque, uint32_t offset,
++		uint64_t value, unsigned size)
++{
++	zynq_gpio_bank_state *s;
++
++	switch (offset) {
++		/* data / mask LW */
++		case 0x0000:
++		case 0x0008:
++		case 0x0010:
++		case 0x0018:
++
++			s = zynq_gpio_from_addr(opaque, offset, ZYNQ_GPIO_REG_GROUP0);
++			zynq_gpio_bank_data_write (s, value, 1);
++			zynq_gpio_update_loopback(opaque, s);
++			break;
++
++			/* data / mask HW */
++		case 0x0004:
++		case 0x000c:
++		case 0x0014:
++		case 0x001c:
++
++			s = zynq_gpio_from_addr(opaque, offset, ZYNQ_GPIO_REG_GROUP0);
++			zynq_gpio_bank_data_write (s, value, 2);
++			zynq_gpio_update_loopback(opaque, s);
++			break;
++
++			/* data DW */
++		case 0x0040:
++		case 0x0044:
++		case 0x0048:
++		case 0x004c:
++
++			s = zynq_gpio_from_addr(opaque, offset, ZYNQ_GPIO_REG_GROUP1);
++			zynq_gpio_bank_data_write (s, value, 3);
++			zynq_gpio_update_loopback(opaque, s);
++			break;
++
++			/* bypass */
++		case 0x200:
++		case 0x240:
++		case 0x280:
++		case 0x2c0:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			s->reg_bypass = value;
++			break;
++
++			/* direction */
++		case 0x204:
++		case 0x244:
++		case 0x284:
++		case 0x2c4:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			s->reg_direct = value;
++			break;
++
++			/* o enable */
++		case 0x208:
++		case 0x248:
++		case 0x288:
++		case 0x2c8:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			s->reg_enable = value;
++			break;
++
++			/* int en */
++		case 0x210:
++		case 0x250:
++		case 0x290:
++		case 0x2d0:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			zynq_gpio_bank_int (s, value, 1);
++			break;
++
++			/* int dis */
++		case 0x214:
++		case 0x254:
++		case 0x294:
++		case 0x2d4:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			zynq_gpio_bank_int (s, value, 0);
++			break;
++
++			/* type */
++		case 0x21c:
++		case 0x25c:
++		case 0x29c:
++		case 0x2dc:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			s->reg_int_type = value;
++			break;
++
++			/* Polarity */
++		case 0x220:
++		case 0x260:
++		case 0x2a0:
++		case 0x2e0:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			s->reg_int_polar = value;
++			break;
++
++			/* Any */
++		case 0x224:
++		case 0x264:
++		case 0x2a4:
++		case 0x2e4:
++
++			s = zynq_gpio_from_addr(opaque, offset, 3);
++			s->reg_int_any = value;
++			break;
++
++		default:
++			return;
++
++	}
++
++	zynq_gpio_update(opaque, s);
++}
++
++static const MemoryRegionOps zynq_gpio_ops = {
++	.read = zynq_gpio_read,
++	.write = zynq_gpio_write,
++	.endianness = DEVICE_LITTLE_ENDIAN,
++};
++
++
++static zynq_gpio_bank_state *zung_gpio_bank_init (uint32_t num_of_pins, uint32_t n)
++{
++	zynq_gpio_bank_state *s;
++
++	s = (zynq_gpio_bank_state *)g_malloc0(sizeof(zynq_gpio_bank_state));
++	s->num_of_pins = num_of_pins;
++	s->reg_pins = 0;
++	s->number = n;
++	return s;
++}
++
++static int zynq_gpio_init (SysBusDevice *dev)
++{
++	zynq_gpio_state *s = FROM_SYSBUS(zynq_gpio_state, dev);
++
++	s->gpio_bank[0] = zung_gpio_bank_init(ZYNQ_BANK_0_TOTAL_PINS,
++			ZYNQ_GPIO_BANK_0_ID);
++	s->gpio_bank[1] = zung_gpio_bank_init(ZYNQ_BANK_1_TOTAL_PINS,
++			ZYNQ_GPIO_BANK_1_ID);
++	s->gpio_bank[2] = zung_gpio_bank_init(ZYNQ_BANK_2_TOTAL_PINS,
++			ZYNQ_GPIO_BANK_2_ID);
++	s->gpio_bank[3] = zung_gpio_bank_init(ZYNQ_BANK_3_TOTAL_PINS,
++			ZYNQ_GPIO_BANK_3_ID);
++
++	sysbus_init_irq(dev, &s->irq);
++
++	memory_region_init_io(&s->iomem, &zynq_gpio_ops, s, "gpio", 0x1000);
++	sysbus_init_mmio(dev, &s->iomem);
++
++	return 0;
++}
++
++static void zynq_gpio_class_init(ObjectClass *klass, void *data)
++{
++    SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
++
++    sdc->init = zynq_gpio_init;
++}
++
++static const TypeInfo zynq_gpio_info = {
++    .name = "zynq_gpio",
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(zynq_gpio_state),
++    .class_init = zynq_gpio_class_init,
++};
++
++static void zynq_gpio_register_type(void)
++{
++    type_register_static(&zynq_gpio_info);
++}
++
++type_init(zynq_gpio_register_type)
+-- 
+1.7.9.5
+

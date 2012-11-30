@@ -1,0 +1,37 @@
+From 10d77406408655e7459b881e2bd8d956eb4f8cc5 Mon Sep 17 00:00:00 2001
+From: Liming Wang <liming.wang@windriver.com>
+Date: Thu, 29 Nov 2012 10:10:39 +0800
+Subject: [PATCH 13/26] m25p80: Modify the jedec code for Numonyx n25q128
+
+Micron/Numonyx N25Q128 has two types of flash:
+
+ - One is for 1.8v supply voltage, prefixed with "n25q128a11" and the jedec
+   code is 0x20bb18.
+
+ - Another is for 3v supply voltage, prefixed with "n25q128a13" and the jedec
+   code is 0x20ba18.
+
+The "n25q128" on current xilinx zynq board is for 1.8v supply voltage, so the
+jedec code should be 0x20bb18, not 0x20ba18.
+
+Signed-off-by: Liming Wang <liming.wang@windriver.com>
+---
+ hw/m25p80.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/m25p80.c b/hw/m25p80.c
+index 3895e73..58ae754 100644
+--- a/hw/m25p80.c
++++ b/hw/m25p80.c
+@@ -177,7 +177,7 @@ static const FlashPartInfo known_devices[] = {
+     { INFO("w25q64",      0xef4017,      0,  64 << 10, 128, ER_4K) },
+ 
+     /* Numonyx -- n25q128 */
+-    { INFO("n25q128",      0x20ba18,      0,  64 << 10, 256, 0) },
++    { INFO("n25q128",      0x20bb18,      0,  64 << 10, 256, 0) },
+ 
+     { },
+ };
+-- 
+1.7.9.5
+

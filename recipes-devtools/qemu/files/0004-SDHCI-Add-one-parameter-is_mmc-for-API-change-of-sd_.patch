@@ -1,0 +1,27 @@
+From 040c96dd2ddf5a95e982dbbc3a83b0952f60cb3e Mon Sep 17 00:00:00 2001
+From: Liming Wang <liming.wang@windriver.com>
+Date: Tue, 13 Nov 2012 20:20:24 +0800
+Subject: [PATCH 04/26] SDHCI: Add one parameter "is_mmc" for API change of
+ sd_init function
+
+Signed-off-by: Liming Wang <liming.wang@windriver.com>
+---
+ hw/sdhci.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/sdhci.c b/hw/sdhci.c
+index 3e61878..36c6ce1 100644
+--- a/hw/sdhci.c
++++ b/hw/sdhci.c
+@@ -248,7 +248,7 @@ static void sdhci_reset(DeviceState *d)
+         s->bs = inf ? inf->bdrv : NULL;
+     }
+     if (!s->sd && s->bs) {
+-        s->sd = sd_init(s->bs, 0);
++        s->sd = sd_init(s->bs, 0, 0);
+     }
+ 
+     s->sdma_address = 0;
+-- 
+1.7.9.5
+

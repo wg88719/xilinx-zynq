@@ -1,0 +1,33 @@
+From 72d9fee25131de392473e18a8a36edc4a1aaf1b3 Mon Sep 17 00:00:00 2001
+From: Peter Crosthwaite <peter.crosthwaite@xilinx.com>
+Date: Mon, 29 Oct 2012 11:34:38 +1000
+Subject: [PATCH 24/26] xilinx_zynq: add USB controllers
+
+qemu mainline upstream commit 892776ce02e3915b8db9d85935ea144ee5a1a41a
+
+Add the two usb controllers in Zynq.
+
+Signed-off-by: Peter Crosthwaite <peter.crosthwaite@xilinx.com>
+Signed-off-by: Gerd Hoffmann <kraxel@redhat.com>
+Integrated-by: Liming Wang <liming.wang@windriver.com>
+---
+ hw/xilinx_zynq.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/hw/xilinx_zynq.c b/hw/xilinx_zynq.c
+index 2aaa5a7..2a188b7 100644
+--- a/hw/xilinx_zynq.c
++++ b/hw/xilinx_zynq.c
+@@ -201,6 +201,9 @@ static void zynq_init(QEMUMachineInitArgs *args)
+     zynq_init_spi_flashes(0xE0007000, pic[81-IRQ_OFFSET], false);
+     zynq_init_spi_flashes(0xE000D000, pic[51-IRQ_OFFSET], true);
+ 
++    sysbus_create_simple("xlnx,ps7-usb", 0xE0002000, pic[53-IRQ_OFFSET]);
++    sysbus_create_simple("xlnx,ps7-usb", 0xE0003000, pic[75-IRQ_OFFSET]);
++
+     sysbus_create_simple("cadence_uart", 0xE0000000, pic[59-IRQ_OFFSET]);
+     sysbus_create_simple("cadence_uart", 0xE0001000, pic[82-IRQ_OFFSET]);
+ 
+-- 
+1.7.9.5
+

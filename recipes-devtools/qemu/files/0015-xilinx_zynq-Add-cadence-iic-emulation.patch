@@ -1,0 +1,212 @@
+From 5d8a87c270d63af168f165195fd6675a4345c0e0 Mon Sep 17 00:00:00 2001
+From: Liming Wang <liming.wang@windriver.com>
+Date: Mon, 19 Nov 2012 19:31:40 +0800
+Subject: [PATCH 15/26] xilinx_zynq: Add cadence iic emulation
+
+Add cadence iic emulation from qemu-xarm git tree:
+git://git.xilinx.com/qemu-xarm.git
+
+Signed-off-by: Liming Wang <liming.wang@windriver.com>
+---
+ hw/Makefile.objs |    1 +
+ hw/cadence_iic.c |  161 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ hw/xilinx_zynq.c |    3 +
+ 3 files changed, 165 insertions(+)
+ create mode 100644 hw/cadence_iic.c
+
+diff --git a/hw/Makefile.objs b/hw/Makefile.objs
+index e56a666..c2b0bc3 100644
+--- a/hw/Makefile.objs
++++ b/hw/Makefile.objs
+@@ -95,6 +95,7 @@ common-obj-$(CONFIG_VERSATILE_I2C) += versatile_i2c.o
+ common-obj-$(CONFIG_CADENCE) += cadence_uart.o
+ common-obj-$(CONFIG_CADENCE) += cadence_ttc.o
+ common-obj-$(CONFIG_CADENCE) += cadence_gem.o
++common-obj-$(CONFIG_CADENCE) += cadence_iic.o
+ common-obj-$(CONFIG_XGMAC) += xgmac.o
+ 
+ # PCI watchdog devices
+diff --git a/hw/cadence_iic.c b/hw/cadence_iic.c
+new file mode 100644
+index 0000000..3e617cd
+--- /dev/null
++++ b/hw/cadence_iic.c
+@@ -0,0 +1,161 @@
++/*
++ * QEMU dummy model of cadence iic controller
++ *
++ * Copyright (c) 2011 Peter A.G. Crosthwaite (peter.crosthwaite@petalogix.com)
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this software and associated documentation files (the "Software"), to deal
++ * in the Software without restriction, including without limitation the rights
++ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ * copies of the Software, and to permit persons to whom the Software is
++ * furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
++ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++ * THE SOFTWARE.
++ */
++
++#include "sysbus.h"
++#include "sysemu.h"
++
++#define QEMU_DEBUG_PREFIX "cadence_iic"
++
++#ifdef CADENCE_IIC_FILE_DEBUG
++#define FILE_DEBUG CADENCE_IIC_FILE_DEBUG
++#endif
++
++#ifdef CADENCE_IIC_ERR_DEBUG
++#define ERR_DEBUG
++#endif
++
++#define R_CONTROL_REG (0x0 /4)
++#define R_STATUS_REG (0x4 /4)
++#define R_I2C_ADDRESS_REG (0x8 /4)
++#define R_I2C_DATA_REG (0xC /4)
++#define R_INTERRUPT_STATUS_REG (0x10 / 4)
++#define R_TRANSFER_SIZE_REG (0x14 / 4)
++#define R_SLAVE_MON_PAUSE_REG (0x18 / 4)
++
++#define R_TIME_OUT_REG (0x1C / 4)
++#define R_TIME_OUT_REG_RESET 0x1F
++
++#define R_INTRPT_MASK_REG (0x20 / 4)
++#define R_INTRPT_MASK_REG_RESET 0x2FF
++
++#define R_INTRPT_ENABLE_REG (0x24 / 4)
++#define R_INTRPT_DISABLE_REG (0x28 / 4)
++
++#define R_MAX R_INTRPT_DISABLE_REG + 1
++
++struct CadenceIIC
++{
++    SysBusDevice busdev;
++    MemoryRegion iomem;
++    qemu_irq irq;
++    uint32_t regs[R_MAX];
++};
++
++static void update_ixr (struct CadenceIIC *s) {
++    //TODO: implement
++}
++
++static void reset (struct CadenceIIC *s) {
++    memset(s->regs, 0, R_MAX*4);
++    s->regs[R_TIME_OUT_REG] = R_TIME_OUT_REG_RESET;
++    s->regs[R_INTRPT_MASK_REG] = R_INTRPT_MASK_REG_RESET;
++}
++
++static uint64_t iic_read (void *opaque, uint64_t addr, unsigned size)
++{
++    struct CadenceIIC *s = opaque;
++    uint32_t ret;
++
++    addr >>= 2;
++    switch (addr)
++    {
++        //TODO: implement any read side effects
++    }
++    ret = s->regs[addr];
++    return ret;
++}
++
++static void
++iic_write (void *opaque, uint64_t addr, uint64_t value, unsigned size)
++{
++    struct CadenceIIC *s = opaque;
++    uint32_t mask = 0xFFFF0000;
++    addr >>= 2;
++    switch (addr)
++    {
++        case R_CONTROL_REG: mask |= 0x0010; break; 
++        case R_STATUS_REG: mask = ~0; break;
++        case R_I2C_ADDRESS_REG: mask = ~0x2FF; break;
++        case R_I2C_DATA_REG: mask = ~0xFF; break;
++        case R_INTERRUPT_STATUS_REG:
++            s->regs[R_INTERRUPT_STATUS_REG] &= ~value;
++            goto skip_update_reg;
++        case R_TRANSFER_SIZE_REG: mask = ~0xFF; break;
++        case R_SLAVE_MON_PAUSE_REG: mask = ~0x0F; break;
++        case R_TIME_OUT_REG: mask = ~0xFF; break;
++        case R_INTRPT_MASK_REG: mask = ~0x0; break;
++        case R_INTRPT_ENABLE_REG:
++            s->regs[R_INTRPT_MASK_REG] &= ~(value & 0x2FF);
++            goto skip_update_reg;
++        case R_INTRPT_DISABLE_REG:
++            s->regs[R_INTRPT_MASK_REG] |= (value & 0x2FF);
++            goto skip_update_reg;
++        default:
++            break;
++    }
++    s->regs[addr] = (s->regs[addr] & ~mask) | (value & mask);
++skip_update_reg:
++    update_ixr(s);
++}
++
++static const MemoryRegionOps iic_ops = {
++    .read = iic_read,
++    .write = iic_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++};
++
++static int cadence_iic_init(SysBusDevice *dev)
++{
++    struct CadenceIIC *s = FROM_SYSBUS(typeof (*s), dev);
++
++
++    sysbus_init_irq(dev, &s->irq);
++
++    memory_region_init_io(&s->iomem, &iic_ops, s, "iic", R_MAX*4);
++    sysbus_init_mmio(dev, &s->iomem);
++
++    reset(s);
++    return 0;
++}
++
++static void cadence_iic_class_init(ObjectClass *klass, void *data)
++{
++    SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
++
++    sdc->init = cadence_iic_init;
++}
++
++static TypeInfo cadence_iic_info = {
++    .name  = "cadence_iic",
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size  = sizeof(struct CadenceIIC),
++    .class_init = cadence_iic_class_init,
++};
++
++static void cadence_iic_register_types(void)
++{
++    type_register_static(&cadence_iic_info);
++}
++
++type_init(cadence_iic_register_types)
+diff --git a/hw/xilinx_zynq.c b/hw/xilinx_zynq.c
+index 90bb3be..3d48b9c 100644
+--- a/hw/xilinx_zynq.c
++++ b/hw/xilinx_zynq.c
+@@ -209,6 +209,9 @@ static void zynq_init(QEMUMachineInitArgs *args)
+     sysbus_create_varargs("cadence_ttc", 0xF8002000,
+             pic[69-IRQ_OFFSET], pic[70-IRQ_OFFSET], pic[71-IRQ_OFFSET], NULL);
+ 
++    sysbus_create_simple("cadence_iic", 0xE0004000, pic[57-IRQ_OFFSET]);
++    sysbus_create_simple("cadence_iic", 0xE0005000, pic[80-IRQ_OFFSET]);
++
+     sysbus_create_varargs("zynq_gpio", 0xE000A000, pic[52-IRQ_OFFSET], NULL);
+ 
+     dev = qdev_create(NULL, "sysbus_sdhci");
+-- 
+1.7.9.5
+

@@ -1,3 +1,6 @@
+#
+# Copyright (C) 2012 Wind River Systems, Inc.
+#
 SRCREV = "e4286a6a9916a586c79f57ee836343d566cecce5"
 
 FILESEXTRAPATHS := "${THISDIR}/files:"

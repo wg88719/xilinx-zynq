@@ -1,10 +1,10 @@
-        Xilinx ZYNQ ZC702 Board Support Package
+        Xilinx ZYNQ Board Support Package
 
 
 1. About this document
 ======================
 This document describes the common and non-hardware specific information
-about the Xilinx ZYNQ ZC702 Board. Please refer to README.hardware for
+about the Xilinx ZYNQ ZC702 and ZC706 boards. Please refer to README.hardware for
 hardware specific information.
 
 Dependencies
@@ -49,16 +49,9 @@ with patch descriptions use git-whatchanged on the default kernel. For example:
 
 It is necessary to load the DTB(device tree blob) into the target's memory
 prior to booting the kernel uImage. The DTB file can be found in the export
-directory after a build or you can generate it manually with the following
-commands:
+directory after building a project.
 
-	# make kds
-	# make zynq-zc702-sd.dtb
-
-The zynq-zc702-sd.dtb can then be found in below directory:
-	build/linux-windriver-3.4-r0/linux-xilinx-zynq-standard-build/arch/arm/boot
-
-Copy above DTB image to MMC/SD or QSPI Flash, and use uboot's fatload command
+Copy DTB image to MMC/SD or QSPI Flash, and use uboot's fatload command
 to transfer it to the board before booting along with kernel image.
 
 
@@ -89,7 +82,7 @@ Suppose the device node for MMC/SD card on the host machine is the
 (3) Copy BOOT.BIN file to /dev/mmcblk0p1.
 
 The BOOT.BIN file can be downloaded from the XILINX's website at
-http://www.xilinx.com/support/documentation/zc702_14-1.htm
+http://wiki.xilinx.com/zynq-release-14-3
 
 	# mkdir /mnt/sd
 	# mount -t vfat /dev/mmcblk0p1 /mnt/sd
@@ -152,7 +145,7 @@ Load the kernel image and boot along with the DTB image:
 3.2.1 QSPI Flash layout
 -----------------------
 
-The storage capacity of the QSPI flash on ZC702 is 16MB, by default following
+The storage capacity of the QSPI flash on ZYNQ board is 16MB, by default following
 partitions have been created on it:
 
 	Start			End		Definition
@@ -230,7 +223,8 @@ other than MMC/SD card, the "chosen" DTB node needs to be changed in two
 possible approaches.
 
 Either edit the following DTB source file
-	linux/arch/arm/boot/dts/zynq-zc702-sd.dts
+	linux/arch/arm/boot/dts/zynq-zc702-sd.dts or
+	linux/arch/arm/boot/dts/zynq-zc706-sd.dts
 and re-generate the DTB image.
 
 Or modify DTB content on-line via u-boot's fdt command:
@@ -262,7 +256,7 @@ Or modify DTB content on-line via u-boot's fdt command:
 4.1.1 Introduction
 ------------------
 
-The Xilinx ZYNQ ZC702 board supports USB OTG, USB host and USB device modes.
+The Xilinx ZYNQ board supports USB OTG, USB host and USB device modes.
 They share one common interface, therefore any mode can only be activated
 exclusively. Jumpers can be used to switch among different modes, please
 refer to README.hardware for the detailed information.

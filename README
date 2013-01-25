@@ -4,7 +4,7 @@
 1. About this document
 ======================
 This document describes the common and non-hardware specific information
-about the Xilinx ZYNQ ZC702 and ZC706 boards. Please refer to README.hardware for
+about the Xilinx ZYNQ ZC702 board. Please refer to README.hardware for
 hardware specific information.
 
 Dependencies
@@ -223,8 +223,7 @@ other than MMC/SD card, the "chosen" DTB node needs to be changed in two
 possible approaches.
 
 Either edit the following DTB source file
-	linux/arch/arm/boot/dts/zynq-zc702-sd.dts or
-	linux/arch/arm/boot/dts/zynq-zc706-sd.dts
+	linux/arch/arm/boot/dts/zynq-zc702-sd.dts
 and re-generate the DTB image.
 
 Or modify DTB content on-line via u-boot's fdt command:

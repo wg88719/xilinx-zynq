@@ -4,7 +4,7 @@
 1. About this document
 ======================
 This document describes the common and non-hardware specific information
-about the Xilinx ZYNQ ZC702 board. Please refer to README.hardware for
+about the Xilinx ZYNQ ZC702 and ZC706 boards. Please refer to README.hardware for
 hardware specific information.
 
 Dependencies
@@ -223,7 +223,8 @@ other than MMC/SD card, the "chosen" DTB node needs to be changed in two
 possible approaches.
 
 Either edit the following DTB source file
-	linux/arch/arm/boot/dts/zynq-zc702-sd.dts
+	linux/arch/arm/boot/dts/zynq-zc702-sd.dts or
+	linux/arch/arm/boot/dts/zynq-zc706-sd.dts
 and re-generate the DTB image.
 
 Or modify DTB content on-line via u-boot's fdt command:
@@ -283,7 +284,7 @@ for various USB modes.
 
 	Plug in B cable and connect to the host machine.
 
-	ZYNQ ZC702 board configure:
+	ZYNQ board configure:
 	# ifconfig usb0 192.168.1.10
 
 	Host machine configure:
@@ -306,3 +307,47 @@ for various USB modes.
 	# tftp 0x1000000 uImage-xilinx-zynq.dtb
 	# fdt addr 0x1000000
 	# fdt set /amba/usb dr_mode peripheral
+
+
+4.2 kexec/kdump
+---------------
+
+For discussion purposes, some terminology which will be useful which will be
+described here.
+
+ - boot kernel: the first one that you start and supports kexec, from u-boot for instance
+
+To build boot kernel, use the following configure option to configure project:
+
+	--with-template=feature/kexec
+
+ - dump-capture kernel: the kernel that you reboot into after the boot kernel crash
+
+To build dump-capture kernel, use the following configure option to configure project:
+
+	--with-template=feature/kdump
+
+To reserve a memory region for dump-capture kernel, please pass "crashkernel=128M@64M"
+via command line.
+
+For more detailed info about kdump, please refer to Documentation/kdump/kdump.txt in the kernel
+source tree.
+
+
+4.3 xylonfb
+-----------
+
+ZYNQ board needs an special bootloader to support xylonfb support, which can be
+downloaded from the XILINX's website at:
+
+http://download.xilinx.com/kits/zynq_base_trd_14_3.zip
+
+Download and unzip the zip file, and get BOOT.BIN from "sd_image/" directory.
+Then please use the above bootloader to test xylonfb.
+
+Unfortunately, XILINX only provides the special bootloader for ZC702. So xylonfb can
+only be tested on ZC702 board.
+
+To build kernel with xylonfb, use the following configure option to configure project:
+
+	--with-template=feature/xylonfb

@@ -6,7 +6,7 @@ SRCREV = "e4286a6a9916a586c79f57ee836343d566cecce5"
 FILESEXTRAPATHS := "${THISDIR}/files:"
 SRC_URI += " file://0001-SDHCI-inital-version.patch \
            file://0002-xilinx_zynq-added-sdhci-controller.patch \
-           file://0003-SDHCI-Change-target_phys_addr_t-to-uint32_t.patch \
+           file://0003-SDHCI-Change-target_phys_addr_t-to-hwaddr.patch \
            file://0004-SDHCI-Add-one-parameter-is_mmc-for-API-change-of-sd_.patch \
            file://0005-xilinx_zynq-added-smp-support.patch \
            file://0006-xilinx_zynq-Add-zynq-gpio-emulation.patch \

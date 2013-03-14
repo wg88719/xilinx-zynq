@@ -351,3 +351,9 @@ only be tested on ZC702 board.
 To build kernel with xylonfb, use the following configure option to configure project:
 
 	--with-template=feature/xylonfb
+
+After building the kernel, please use "export/xilinx-zynq-zynq-zc702-sd-xylonfb.dtb*"
+as the dtb file to boot the board.
+
+To reserve a memory region for xylonfb feature, please pass
+"mem=768M memmap=128M$0x30000000 vmalloc=256M" via command line when booting the board.

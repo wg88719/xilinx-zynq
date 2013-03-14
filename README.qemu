@@ -71,6 +71,8 @@ Then copy a dtb file for qemu to use:
 	$ cp export/xilinx-zynq-zynq-zc702-qemu-sd.dtb-WR<version>_standard \
 	export/xilinx-zynq-zynq-zc702-qemu-sd.dtb
 
+Note: Xilinx qemu doesn't support preempt-rt kernel.
+
 3.2 Booting
 -----------
 

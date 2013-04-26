@@ -20,6 +20,7 @@ This BSP supports the following boards:
 2. Change History
 =================
 
+  - 2013/05 (00409171): Add cgp kernel and CPU hotplug support
   - 2013/01 (00386039): Add kexec/kdump, xylonfb, cpufreq, cpuidle and ZC706 board support
   - 2012/11 (00361697): Add support of running BSP on qemu native package
   - 2012/10 (00361697): Add preempt-rt kernel support
@@ -61,6 +62,7 @@ the corresponding h/w features exist.
 
   o Power Mgmt
 	+ CPU IDLE: WFI mode (wait for interrupt mode)
+	+ CPU hotplug
 
   o Misc Devices
 	+ HDMI: On-Chip HDMI controller (ZC702)

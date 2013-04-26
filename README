@@ -327,8 +327,8 @@ To build dump-capture kernel, use the following configure option to configure pr
 
 	--with-template=feature/kdump
 
-To reserve a memory region for dump-capture kernel, please pass "crashkernel=128M@64M"
-via command line.
+To reserve a memory region and boot a cpu for dump-capture kernel, please pass
+"maxcpus=1 crashkernel=128M@64M" via command line.
 
 For more detailed info about kdump, please refer to Documentation/kdump/kdump.txt in the kernel
 source tree.

@@ -269,7 +269,7 @@ needed. However, in order to enable other USB modes, DTB needs to be shifted
 accordingly. One convenient approach is to alter it on-line. Alternatively,
 you can directly modify its source code and re-generate a new DTB image.
 
-Refer to the 3.1.7 section of the README.hardware file for jumper settings
+Refer to the 4.1.3 section of the README.hardware file for jumper settings
 for various USB modes.
 
 1. Enable OTG host mode
@@ -302,6 +302,9 @@ for various USB modes.
 	# cd /sys/devices/amba.0/e0002000.usb/xusbps-otg.0/inputs/
 	# echo 1 > a_bus_req
 
+	After hotplug otg for host mode, some calltrace will generate,
+	the vender SDK have the same issue.
+
 2. USB Device mode
 
 	# tftp 0x1000000 uImage-xilinx-zynq.dtb
@@ -327,12 +330,15 @@ To build dump-capture kernel, use the following configure option to configure pr
 
 	--with-template=feature/kdump
 
-To reserve a memory region for dump-capture kernel, please pass "crashkernel=128M@64M"
-via command line.
+To reserve a memory region and boot a cpu for dump-capture kernel, please pass
+"maxcpus=1 crashkernel=128M@64M" via command line.
 
 For more detailed info about kdump, please refer to Documentation/kdump/kdump.txt in the kernel
 source tree.
 
+Note: The boot kernel and the dump-capture kernel are exclusive. At any time,
+a project is configured either --with-template=feature/kexec or
+--with-template=feature/kdump, but not in both.
 
 4.3 xylonfb
 -----------
@@ -357,3 +363,9 @@ as the dtb file to boot the board.
 
 To reserve a memory region for xylonfb feature, please pass
 "mem=768M memmap=128M$0x30000000 vmalloc=256M" via command line when booting the board.
+
+
+4.4 OProfile
+-------------
+
+Except standard, the cgl and preempt-rt kernel type do not support the Oprofile.

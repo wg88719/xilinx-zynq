@@ -20,6 +20,7 @@ This BSP supports the following boards:
 2. Change History
 =================
 
+  - 2013/05 (00409171): Add cgp kernel and CPU hotplug support
   - 2013/01 (00386039): Add kexec/kdump, xylonfb, cpufreq, cpuidle and ZC706 board support
   - 2012/11 (00361697): Add support of running BSP on qemu native package
   - 2012/10 (00361697): Add preempt-rt kernel support
@@ -61,6 +62,7 @@ the corresponding h/w features exist.
 
   o Power Mgmt
 	+ CPU IDLE: WFI mode (wait for interrupt mode)
+	+ CPU hotplug
 
   o Misc Devices
 	+ HDMI: On-Chip HDMI controller (ZC702)
@@ -172,8 +174,36 @@ Shift SW16 setting to 00010 in order to boot from QSPI Flash:
 	SW16.5 = OFF
 
 
+4.1.2.3 HW-Z7-ZC706 REV B
+-------------------------
+
+1. Booting from SD card
+
+The SW11 on the front panel is used for the configuration of booting sequence,
+the default setting (00110) specifies to boot from the SD card:
+
+	SW11.1 = OFF
+	SW11.2 = OFF
+	SW11.3 = ON
+	SW11.4 = ON
+	SW11.5 = OFF
+
+2. Booting from QSPI flash
+
+Shift SW11 setting to 00010 in order to boot from QSPI Flash:
+
+	SW11.1 = OFF
+	SW11.2 = OFF
+	SW11.3 = OFF
+	SW11.4 = ON
+	SW11.5 = OFF
+
+
 4.1.3 Jumper settings for various USB modes
 -------------------------------------------
+
+4.1.3.1 HW-Z7-ZC702 REV B and REV D
+-----------------------------------
 
 The USB interface on the ZC702 board supports the host, peripheral and otg
 modes, controlled by relevant jumper configurations illustrated below:
@@ -203,33 +233,8 @@ For OTG mode:
 	J36 1-2
 
 
-4.1.2.2 HW-Z7-ZC706 REV B
+4.1.3.2 HW-Z7-ZC706 REV B
 -------------------------
-
-1. Booting from SD card
-
-The SW11 on the front panel is used for the configuration of booting sequence,
-the default setting (00110) specifies to boot from the SD card:
-
-	SW11.1 = OFF
-	SW11.2 = OFF
-	SW11.3 = ON
-	SW11.4 = ON
-	SW11.5 = OFF
-
-2. Booting from QSPI flash
-
-Shift SW11 setting to 00010 in order to boot from QSPI Flash:
-
-	SW11.1 = OFF
-	SW11.2 = OFF
-	SW11.3 = OFF
-	SW11.4 = ON
-	SW11.5 = OFF
-
-
-4.1.3 Jumper settings for various USB modes
--------------------------------------------
 
 The USB interface on the ZC706 board supports the host, peripheral and otg
 modes, controlled by relevant jumper configurations illustrated below:

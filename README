@@ -360,3 +360,9 @@ as the dtb file to boot the board.
 
 To reserve a memory region for xylonfb feature, please pass
 "mem=768M memmap=128M$0x30000000 vmalloc=256M" via command line when booting the board.
+
+
+4.4 OProfile
+-------------
+
+Except standard, the cgl and preempt-rt kernel type do not support the Oprofile.

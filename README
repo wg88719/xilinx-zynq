@@ -302,8 +302,9 @@ for various USB modes.
 	# cd /sys/devices/amba.0/e0002000.usb/xusbps-otg.0/inputs/
 	# echo 1 > a_bus_req
 
-	After hotplug otg for host mode, some calltrace will generate,
-	the vender SDK have the same issue.
+	The usb otg have some bugs. Please reference http://www.xilinx.com for
+	the detail.
+
 
 2. USB Device mode
 

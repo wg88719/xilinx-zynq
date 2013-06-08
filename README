@@ -110,7 +110,7 @@ instance, ext3 and mount it and deploy the root filesystem image there:
 	# mkfs.ext3 /dev/mmcblk0p2
 	# mount /dev/mmcblk0p2 /mnt/sd
 	# cd <buildprj>/export/images/
-	# tar -C /mnt/sd -jxf wrlinux-image-glibc-std-xilinx-zynq.tar.bz2
+	# tar -C /mnt/sd -jxf wrlinux-image-glibc-std-xilinx-zynq.tar.bz2 --numeric-owner
 	# umount /mnt/sd
 
 

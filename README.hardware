@@ -20,8 +20,8 @@ This BSP supports the following boards:
 2. Change History
 =================
 
-  - 2013/05 (00409171): Add cgp kernel and CPU hotplug support
-  - 2013/01 (00386039): Add kexec/kdump, xylonfb, cpufreq, cpuidle and ZC706 board support
+  - 2013/05 (00409171) RCPL5.0.1.4: Add cgp kernel and CPU hotplug support
+  - 2013/01 (00386039) RCPL5.0.1.1: Add kexec/kdump, xylonfb, cpufreq, cpuidle and ZC706 board support
   - 2012/11 (00361697): Add support of running BSP on qemu native package
   - 2012/10 (00361697): Add preempt-rt kernel support
   - 2012/09 (00333484): Initial WRL 5.0 Async BSP with ZC702 Board and standard kernel support only

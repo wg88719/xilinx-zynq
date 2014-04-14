@@ -1,16 +1,16 @@
         Xilinx ZYNQ Board Support Package
 
-
 1. About this document
 ======================
-This document describes the common and non-hardware specific information
-about the Xilinx ZYNQ ZC702 and ZC706 boards. Please refer to README.hardware for
-hardware specific information.
+
+This document describes common and non-hardware specific information.
+Please refer to README.hardware for hardware specific information.
 
 Dependencies
 ------------
 This layer depends on the oe-core version supplied with Wind River
 Linux and the wr-kernel layer.
+
 
 Maintenance
 -----------
@@ -18,30 +18,35 @@ This layer is maintained by Wind River Systems, Inc.
 Contact <support@windriver.com> or your support representative for more
 information on submitting changes.
 
+
 Building the xilinx-zynq layer
---------------------------
-This layer and wr-kernel layer should be added to bblayers.conf. This
+------------------------------
+This layer and the wr-kernel layer should be added to bblayers.conf. This
 is done automatically when using the Wind River configure wrapper.
+
 
 License
 -------
-Copyright (C) 2012 Wind River Systems, Inc.
+Copyright (C) 2014 Wind River Systems, Inc.
 
 The right to copy, distribute or otherwise make use of this software may
 be licensed only pursuant to the terms of an applicable Wind River license
 agreement. No license to Wind River intellectual properly rights is granted
 herein. All rights not licensed by Wind River are reserved by Wind River.
 
-Source code included in tree for individual recipes is under the LICENSE
-stated in each recipe (.bb file) unless other stated.
+Source code included in the tree for individual recipes is under the LICENSE
+stated in each recipe (.bb file) unless otherwise stated.
+
 
 2. Board Specific Patches
 =========================
-To get a list of patches applied to the kernel specific to this BSP along
-with patch descriptions use git-whatchanged on the default kernel. For example:
+
+To get a list of patches applied to the kernel specific to this BSP,
+along with patch descriptions, use git to see what changed on the default
+kernel (git whatchanged <kernel_type>..<bsp_name>). For example:
 
 	# cd build/linux-windriver-<version>/linux
-	# git whatchanged standard/base..standard/xilinx-zynq
+	# git whatchanged standard/base..HEAD
 
 
 3. Boot Instructions
@@ -49,9 +54,19 @@ with patch descriptions use git-whatchanged on the default kernel. For example:
 
 It is necessary to load the DTB(device tree blob) into the target's memory
 prior to booting the kernel uImage. The DTB file can be found in the export
-directory after building a project.
+directory after building a project or you can generate it manually with the
+following commands:
 
-Copy DTB image to MMC/SD or QSPI Flash, and use uboot's fatload command
+	# make kds
+	# make zynq-<Board Name>.dtb
+
+Note: <Board Name> can be one of the ZYNQ boards' name, such as zc706 or zc702.
+
+The DTB can then be found in the
+  build/linux-windriver/linux-<board>-<kernel type>-build/arch/arm/boot/dts/
+directory.
+
+Copy DTB image to MMC/SD or QSPI Flash, and use u-boot's fatload command
 to transfer it to the board before booting along with kernel image.
 
 
@@ -82,7 +97,7 @@ Suppose the device node for MMC/SD card on the host machine is the
 (3) Copy BOOT.BIN file to /dev/mmcblk0p1.
 
 The BOOT.BIN file can be downloaded from the XILINX's website at
-http://wiki.xilinx.com/zynq-release-14-3
+http://www.wiki.xilinx.com/Zynq+14.7-2013.3+Release
 
 	# mkdir /mnt/sd
 	# mount -t vfat /dev/mmcblk0p1 /mnt/sd
@@ -97,12 +112,13 @@ http://wiki.xilinx.com/zynq-release-14-3
 	# mount /dev/mmcblk0p1 /mnt/sd
 	# cd <buildprj>/export/images/
 	# cp uImage-xilinx-zynq.bin  /mnt/sd/uImage
-	# cp uImage-xilinx-zynq.dtb /mnt/sd/devicetree.dtb
+	# cp uImage-zynq-<Board Name>.dtb /mnt/sd/devicetree.dtb
 	# umount /mnt/sd
 
 
 3.1.3 Decompress MMC/SD root filesystem
 ---------------------------------------
+
 Assuming the second partition is used for the root filesystem, format it
 with one of the most popular filesystem types supported by Linux, for
 instance, ext3 and mount it and deploy the root filesystem image there:
@@ -117,25 +133,12 @@ instance, ext3 and mount it and deploy the root filesystem image there:
 3.1.4 Boot from MMC/SD card
 ---------------------------
 
-The default DTB supports to boot from MMC/SD device, following kernel boot
-arguments have been specified in the "chosen" DTB node:
-	console=ttyPS0,115200 earlyprintk root=/dev/mmcblk0p2 ro rootwait
-
-Load the DTB image and check out the kernel boot arguments:
+To boot from MMC/SD card, please use u-boot's commands as follows:
 
 	# mmcinfo
 	# fatload mmc 0 0x1000000 devicetree.dtb
-	# fdt addr 0x1000000
-	# fdt print /chosen
-	chosen {
-		bootargs = "console=ttyPS0,115200 earlyprintk root=/dev/mmcblk0p2 ro rootwait";
-		linux,stdout-path = "/amba@0/uart@E0001000";
-	};
-
-Load the kernel image and boot along with the DTB image:
-
-	# mmcinfo
 	# fatload mmc 0 0x10600000 uImage
+	# setenv bootargs console=ttyPS0,115200 earlyprintk root=/dev/mmcblk0p2 ro rootwait
 	# bootm 0x10600000 - 0x1000000
 
 
@@ -149,20 +152,21 @@ The storage capacity of the QSPI flash on ZYNQ board is 16MB, by default followi
 partitions have been created on it:
 
 	Start			End		Definition
-	0x0			0x80000		qspi-fsbl	(bootloader partition, part I)
-	0x80000			0x100000	qspi-u-boot	(bootloader partition, part II)
+	0x0			0x100000	qspi-fsbl-uboot
 	0x100000		0x600000	qspi-linux
 	0x600000		0x620000	qspi-device-tree
-	0x620000		0x700000	qspi-user
-	0x700000		0x800000	qspi-scratch
-	0x800000		0x1000000	qspi-rootfs
+	0x620000		0xc00000	qspi-rootfs
+	0xc00000		0x1000000	qspi-bitstream
 
 Be extra careful not to touch bootloader partition about FSBL and u-boot. If
 needed, you can alter the layout of the rest of QSPI Flash. In addition, you
 also need to modify the QSPI Flash device node in the below DTB source file to
 reflect such changes accordingly:
-	linux/arch/arm/boot/dts/zc702.dtsi
+
+	linux/arch/arm/boot/dts/zynq-<Board Name>.dts
+
 Then re-generate the DTB image as described previously.
+
 
 3.2.2 Save bootloader image to the bootloader partitions
 --------------------------------------------------------
@@ -179,6 +183,7 @@ from MMC/SD device or NFS server. When loading the BOOT.BIN image from MMC/SD
 card, its file size will be automatically recorded in u-boot's "filesize"
 variable, which can be leveraged later.
 
+
 3.2.3 Update DTB to support to boot from QSPI flash
 ---------------------------------------------------
 
@@ -188,6 +193,7 @@ variable, which can be leveraged later.
 	# sf erase 0x600000 0x20000
 	# sf write 0x100000 0x600000 ${filesize}
 
+
 3.2.4 Copy kernel image
 -----------------------
 
@@ -196,6 +202,7 @@ variable, which can be leveraged later.
 	# sf probe 0
 	# sf erase 0x100000 0x500000
 	# sf write 0x100000 0x100000 ${filesize}
+
 
 3.2.5 Target Note
 -----------------
@@ -211,39 +218,22 @@ to mount the root filesystem from MMC/SD card.
 
 3.3.1 Prepare NFS and TFTP servers
 ----------------------------------
+
 The files in above example can be found in <buildprj>/export/images and
-are copied to the directory of the TFTP server.
+are copied to the directory of the NFS/TFTP server.
+
 
 3.3.2 Boot from NFS root filesystem
 -----------------------------------
 
-The DTB node "chosen" is used to specify the kernel boot arguments, in
-particular, the root device to boot from. In order to boot from root device
-other than MMC/SD card, the "chosen" DTB node needs to be changed in two
-possible approaches.
+To boot from NFS rootfs, please use u-boot's commands as follows:
 
-Either edit the following DTB source file
-	linux/arch/arm/boot/dts/zynq-zc702-sd.dts or
-	linux/arch/arm/boot/dts/zynq-zc706-sd.dts
-and re-generate the DTB image.
-
-Or modify DTB content on-line via u-boot's fdt command:
-
-	# tftp 0x1000000 uImage-xilinx-zynq.dtb;
-	# fdt addr 0x1000000
-	# fdt print /chosen
-	chosen {
-		bootargs = "console=ttyPS0,115200 earlyprintk root=/dev/mmcblk0p2 ro rootwait";
-		linux,stdout-path = "/amba@0/uart@E0001000";
-	};
+	# setenv ipaddr 192.168.1.10
+	# setenv serverip 192.168.1.1
+	# setenv rootpath /nfsexport
 	# setenv bootargs console=ttyPS0,115200 earlyprintk root=/dev/nfs rw nfsroot=$serverip:$rootpath ip=dhcp
-	# fdt chosen
-	# fdt print /chosen
-	chosen {
-		bootargs = "console=ttyPS0,115200 earlyprintk root=/dev/nfs rw nfsroot=$serverip:$rootpath ip=dhcp";
-		linux,stdout-path = "/amba@0/uart@E0001000";
-	};
-	# (loading kernel image from TFTP server / QSPI Flash / MMC/SD to 0x10600000)
+	# tftp 0x10600000 uImage-xilinx-zynq.bin
+	# tftp 0x1000000 uImage-zynq-<Board Name>.dtb
 	# bootm 0x10600000 - 0x1000000
 
 
@@ -261,6 +251,7 @@ They share one common interface, therefore any mode can only be activated
 exclusively. Jumpers can be used to switch among different modes, please
 refer to README.hardware for the detailed information.
 
+
 4.1.2 Usage and verification
 ----------------------------
 
@@ -274,103 +265,14 @@ for various USB modes.
 
 1. Enable OTG host mode
 
-(1) Modify dtb for OTG mode in booting step
+Modify dtb for OTG mode in booting step
 
-	# tftp 0x1000000 uImage-xilinx-zynq.dtb
+	# tftp 0x1000000 devicetree.dtb
 	# fdt addr 0x1000000
-	# fdt set /amba/usb dr_mode otg
+	# fdt set /amba/ps7-usb dr_mode otg
 
-(2) Verify the OTG device mode
+2. Enable USB Device mode
 
-	Plug in B cable and connect to the host machine.
-
-	ZYNQ board configure:
-	# ifconfig usb0 192.168.1.10
-
-	Host machine configure:
-	# sudo ifconfig usb0 192.168.1.100
-	# ping 192.168.1.10 -c 2
-	PING 192.168.1.10 (192.168.1.10) 56(84) bytes of data.
-	64 bytes from 192.168.1.10: icmp_req=1 ttl=64 time=2.06 ms
-	64 bytes from 192.168.1.10: icmp_req=2 ttl=64 time=0.286 ms
-	...
-
-(3) Switch to the OTG host mode
-
-	Replace the B cable with the A cable and enable OTG VBUS as following:
-
-	# cd /sys/devices/amba.0/e0002000.usb/xusbps-otg.0/inputs/
-	# echo 1 > a_bus_req
-
-	The usb otg have some bugs. Please reference http://www.xilinx.com for
-	the detail.
-
-
-2. USB Device mode
-
-	# tftp 0x1000000 uImage-xilinx-zynq.dtb
+	# tftp 0x1000000 devicetree.dtb
 	# fdt addr 0x1000000
-	# fdt set /amba/usb dr_mode peripheral
-
-
-4.2 kexec/kdump
----------------
-
-For discussion purposes, some terminology which will be useful which will be
-described here.
-
- - boot kernel: the first one that you start and supports kexec, from u-boot for instance
-
-To build boot kernel, use the following configure option to configure project:
-
-	--with-template=feature/kexec
-
- - dump-capture kernel: the kernel that you reboot into after the boot kernel crash
-
-To build dump-capture kernel, use the following configure option to configure project:
-
-	--with-template=feature/kdump
-
-For boot kernel:
-To reserve a memory region and boot a cpu for dump-capture kernel, please pass
-"crashkernel=128M@64M" via command line.
-
-For dump-capture kernel:
-Before boot dump-capture kernel, please add "maxcpus=1" to the boot parameter.
-
-For more detailed info about kdump, please refer to Documentation/kdump/kdump.txt in the kernel
-source tree.
-
-Note: The boot kernel and the dump-capture kernel are exclusive. At any time,
-a project is configured either --with-template=feature/kexec or
---with-template=feature/kdump, but not in both.
-
-4.3 xylonfb
------------
-
-ZYNQ board needs an special bootloader to support xylonfb support, which can be
-downloaded from the XILINX's website at:
-
-http://download.xilinx.com/kits/zynq_base_trd_14_3.zip
-
-Download and unzip the zip file, and get BOOT.BIN from "sd_image/" directory.
-Then please use the above bootloader to test xylonfb.
-
-Unfortunately, XILINX only provides the special bootloader for ZC702. So xylonfb can
-only be tested on ZC702 board.
-
-To build kernel with xylonfb, use the following configure option to configure project:
-
-	--with-template=feature/xylonfb
-
-After building the kernel, please use "export/xilinx-zynq-zynq-zc702-sd-xylonfb.dtb*"
-as the dtb file to boot the board.
-
-To reserve a memory region for xylonfb feature, please pass
-"mem=768M memmap=128M$0x30000000 vmalloc=256M" via command line when booting the board.
-
-
-4.4 OProfile
--------------
-
-Except standard, the cgl and preempt-rt kernel type do not support the Oprofile.
+	# fdt set /amba/ps7-usb dr_mode peripheral

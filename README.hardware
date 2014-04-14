@@ -1,5 +1,6 @@
         XILINX ZYNQ Board Support Package
 
+
 Table of Contents
 =================
 
@@ -13,18 +14,14 @@ Table of Contents
 
 This BSP supports the following boards:
 
-  + XILINX ZYNQ ZC702 Board  : XC7Z020 processor, Rev B and Rev D board.
-  + XILINX ZYNQ ZC706 Board  : XC7Z045 processor, Rev B board.
+  + XILINX ZYNQ ZC706 Board  : XC7Z045 processor, Rev 1.2 board.
 
 
 2. Change History
 =================
 
-  - 2013/05 (00409171) RCPL5.0.1.4: Add cgp kernel and CPU hotplug support
-  - 2013/01 (00386039) RCPL5.0.1.1: Add kexec/kdump, xylonfb, cpufreq, cpuidle and ZC706 board support
-  - 2012/11 (00361697): Add support of running BSP on qemu native package
-  - 2012/10 (00361697): Add preempt-rt kernel support
-  - 2012/09 (00333484): Initial WRL 5.0 Async BSP with ZC702 Board and standard kernel support only
+  - 2014/04 (US34373) Wind River Linux 6.0 Async: Initial BSP support for
+			ZC706 including standard kernel types
 
 
 3. BSP Features
@@ -36,39 +33,34 @@ This BSP supports the following boards:
 The following BSP features are validated and supported on boards where
 the corresponding h/w features exist.
 
-  o General Platform
-	+ CPU FREQ
-	+ KGDBoC
-	+ KEXEC/KDUMP
-	+ Oprofile
-
   o Bus
 	+ I2C: On-Chip I2C controller
 	+ QSPI: On-Chip Quad-SPI flash controller
+	+ SPI: On-Chip SPI controller
 
   o Network
 	+ GEM: On-Chip Gigabit Ethernet Controller
+
+  o Storage
+	+ NOR Flash:
+		+ QSPI NOR Flash: Spansion S25FL128S, 128Mb (ZC706)
+	+ SD/MMC: On-Chip SD peripheral controller
 
   o USB
 	+ USB Host: On-Chip USB 2.0 EHCI Host Controller
 	+ USB Gadget: On-Chip USB 2.0 High Speed Device
 	+ USB OTG: USB 2.0 High Speed On-The-Go dual-role USB Host controller
 
-  o Storage
-	+ NOR Flash:
-		+ QSPI NOR Flash: Micron/Numonyx N25Q128A, 128Mb (ZC702)
-		+ QSPI NOR Flash: Spansion S25FL128S, 128Mb (ZC706)
-	+ SD/MMC: On-Chip SD peripheral controller
-
   o Power Mgmt
-	+ CPU IDLE: WFI mode (wait for interrupt mode)
 	+ CPU hotplug
+	+ CPU IDLE: WFI mode (wait for interrupt mode) and RAM Self Refresh
 
   o Misc Devices
-	+ HDMI: On-Chip HDMI controller (ZC702)
-	+ UART: On-Chip UART
-	+ RTC: RTC-8564JE, I2C RTC chip
+	+ CLKGEN: Si570 Clock Generator, I2C chip
 	+ GPIO: On-Chip general purpose I/O peripheral
+	+ RTC: RTC-8564JE, I2C RTC chip
+	+ SWDT: On-Chip System Watchdog Timer
+	+ UART: On-Chip UART
 	+ XADC: On-Chip analog-to-digital converter
 
 
@@ -77,9 +69,24 @@ the corresponding h/w features exist.
 
 The following features are not supported and validated:
 
-	x KGDBoE
+  o General Platform
+	x CPU FREQ
 	x DVFS
+	x KEXEC/KDUMP
+	x KGDBoC
+	x KGDBoE
+	x Oprofile
+
+  o Bus
+	x PCIe: On-Chip PCIe controller (ZC706)
 	x CAN
+
+  o Storage
+	x NOR Flash:
+		x QSPI NOR Flash: Micron/Numonyx N25Q128A, 128Mbit (ZC702)
+
+  o Misc Devices
+	x HDMI: On-Chip HDMI controller (ZC702)
 
 
 4. BSP Notes
@@ -94,19 +101,12 @@ The following features are not supported and validated:
 This BSP is only validated in following environment. If you use this BSP
 in a different environment it may possibly have some issues.
 
-For ZYNQ ZC702 board:
-
-	Processor:             ZYNQ XC7Z020 CLG484-1
-	Board Revision:        HW-Z7-ZC702 REV B, HW-Z7-ZC702 REV D
-	BootLoader:            U-Boot
-	BootLoader Version:    U-Boot 2012.04.01
-
 For ZYNQ ZC706 board:
 
-	Processor:             ZYNQ XC7Z045-2FFG900C
-	Board Revision:        HW-Z7-ZC706 REV B
+	Processor:             ZYNQ XC7Z045
+	Board Revision:        HW-Z7-ZC706 REV 1.2
 	BootLoader:            U-Boot
-	BootLoader Version:    U-Boot 2012.04.01
+	BootLoader Version:    U-Boot 2013.07
 
 
 4.1.2 Specify boot medium
@@ -121,61 +121,8 @@ about preparing the secondary bootloader on the MMC/SD card and QSPI Flash
 respectively.
 
 
-4.1.2.1 HW-Z7-ZC702 REV B
--------------------------
-
-1. Booting from SD card
-
-The jumper configuration for booting from SD card is:
-
-	J20 2-3
-	J21 2-3
-	J22 1-2
-	J25 1-2
-	J26 2-3
-	J27 1-2
-	J28 1-2
-
-2. Booting from QSPI flash
-
-The jumper configuration for booting from the QSPI flash is:
-
-	J20 2-3
-	J21 2-3
-	J22 2-3
-	J25 1-2
-	J26 2-3
-	J27 1-2
-	J28 1-2
-
-
-4.1.2.2 HW-Z7-ZC702 REV D
--------------------------
-
-1. Booting from SD card
-
-The SW16 on the front panel is used for the configuration of booting sequence,
-the default setting (00110) specifies to boot from the SD card:
-
-	SW16.1 = OFF
-	SW16.2 = OFF
-	SW16.3 = ON
-	SW16.4 = ON
-	SW16.5 = OFF
-
-2. Booting from QSPI flash
-
-Shift SW16 setting to 00010 in order to boot from QSPI Flash:
-
-	SW16.1 = OFF
-	SW16.2 = OFF
-	SW16.3 = OFF
-	SW16.4 = ON
-	SW16.5 = OFF
-
-
-4.1.2.3 HW-Z7-ZC706 REV B
--------------------------
+4.1.2.1 HW-Z7-ZC706 REV 1.2
+---------------------------
 
 1. Booting from SD card
 
@@ -202,39 +149,8 @@ Shift SW11 setting to 00010 in order to boot from QSPI Flash:
 4.1.3 Jumper settings for various USB modes
 -------------------------------------------
 
-4.1.3.1 HW-Z7-ZC702 REV B and REV D
------------------------------------
-
-The USB interface on the ZC702 board supports the host, peripheral and otg
-modes, controlled by relevant jumper configurations illustrated below:
-
-For host mode:
-
-	J7 ON
-	J33 2-3
-	J34 2-3
-	J35 1-2
-	J36 1-2
-
-For device mode:
-
-	J7 OFF
-	J33 1-2
-	J34 2-3
-	J35 1-2
-	J36 1-2
-
-For OTG mode:
-
-	J7 ON
-	J33 2-3
-	J34 1-2
-	J35 1-2
-	J36 1-2
-
-
-4.1.3.2 HW-Z7-ZC706 REV B
--------------------------
+4.1.3.1 HW-Z7-ZC706 REV 1.2
+---------------------------
 
 The USB interface on the ZC706 board supports the host, peripheral and otg
 modes, controlled by relevant jumper configurations illustrated below:

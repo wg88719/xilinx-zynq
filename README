@@ -271,8 +271,23 @@ Modify dtb for OTG mode in booting step
 	# fdt addr 0x1000000
 	# fdt set /amba/ps7-usb dr_mode otg
 
+Plug in a B cable and connect to the host machine to verify the OTG device mode.
+
+Then replace the B cable with the A cable and enable OTG VBUS in linux as follows:
+
+	# cd /sys/devices/amba.0/e0002000.ps7-usb/xusbps-otg.0/inputs
+	# echo 1 > a_bus_req
+
 2. Enable USB Device mode
 
-	# tftp 0x1000000 devicetree.dtb
-	# fdt addr 0x1000000
-	# fdt set /amba/ps7-usb dr_mode peripheral
+Change the board's DTB source file and modify following line from:
+
+	dr_mode = "host";
+
+to:
+
+	dr_mode = "peripheral";
+
+Then re-generate the DTB image as described previously. Use the new DTB image
+to boot the board and plug in a B cable and connect to the host machine
+to verify the device mode.

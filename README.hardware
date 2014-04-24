@@ -33,6 +33,10 @@ This BSP supports the following boards:
 The following BSP features are validated and supported on boards where
 the corresponding h/w features exist.
 
+  o General Platform
+	+ KGDBoC
+	+ Oprofile
+
   o Bus
 	+ I2C: On-Chip I2C controller
 	+ QSPI: On-Chip Quad-SPI flash controller
@@ -54,6 +58,7 @@ the corresponding h/w features exist.
   o Power Mgmt
 	+ CPU hotplug
 	+ CPU IDLE: WFI mode (wait for interrupt mode) and RAM Self Refresh
+	+ Suspend to RAM
 
   o Misc Devices
 	+ CLKGEN: Si570 Clock Generator, I2C chip
@@ -73,9 +78,7 @@ The following features are not supported and validated:
 	x CPU FREQ
 	x DVFS
 	x KEXEC/KDUMP
-	x KGDBoC
 	x KGDBoE
-	x Oprofile
 
   o Bus
 	x PCIe: On-Chip PCIe controller (ZC706)

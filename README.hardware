@@ -15,13 +15,17 @@ Table of Contents
 This BSP supports the following boards:
 
   + XILINX ZYNQ ZC706 Board  : XC7Z045 processor, Rev 1.2 board.
+  + XILINX ZYNQ ZC702 Board  : XC7Z020 processor, Rev 1.1 board.
+  + Avnet Microzed Board     : XC7Z010 processor, Rev F01 board.
+  + Avnet Mini-ITX Board     : XC7Z045 processor, Mini-ITX-7Z-PCB-E, REV 3
 
 
 2. Change History
 =================
 
-  - 2014/04 (US34373) Wind River Linux 6.0 Async: Initial BSP support for
-			ZC706 including standard kernel types
+  - 2015/01 (US42598) 
+	Wind River Linux 7.0 Async: Initial standard and preempt-rt support
+	for Mini-ITX, ZC702, ZC706, and Microzed board support
 
 
 3. BSP Features
@@ -41,32 +45,36 @@ the corresponding h/w features exist.
 	+ I2C: On-Chip I2C controller
 	+ QSPI: On-Chip Quad-SPI flash controller
 	+ SPI: On-Chip SPI controller
+	+ PCIe: On-Chip PCIe controller (Mini-ITX)
 
   o Network
 	+ GEM: On-Chip Gigabit Ethernet Controller
+	+ PHY: Marvell 88E1116R (ZC702, ZC706), 88e1510(Mini-ITX) and 88E1512 (Microzed)
 
   o Storage
 	+ NOR Flash:
-		+ QSPI NOR Flash: Spansion S25FL128S, 128Mb (ZC706)
+		+ QSPI NOR Flash: Micron/Numonyx N25Q128A, 128Mb (ZC702)
+		+ QSPI NOR Flash: Spansion S25FL128S, 128Mb (ZC706, Microzed)
+		+ QSPI NOR Flash: Spansion s25FL129P1, 256Mb (Mini-ITX)
 	+ SD/MMC: On-Chip SD peripheral controller
 
   o USB
 	+ USB Host: On-Chip USB 2.0 EHCI Host Controller
-	+ USB Gadget: On-Chip USB 2.0 High Speed Device
-	+ USB OTG: USB 2.0 High Speed On-The-Go dual-role USB Host controller
+	+ USB Gadget: On-Chip USB 2.0 High Speed Device (ZC702, ZC706 only)
+	+ USB OTG: USB 2.0 High Speed On-The-Go dual-role
+		   USB Host controller (ZC702, ZC706 only)
 
   o Power Mgmt
 	+ CPU hotplug
 	+ CPU IDLE: WFI mode (wait for interrupt mode) and RAM Self Refresh
-	+ Suspend to RAM
+	+ Suspend to RAM (mini-itx)
 
   o Misc Devices
-	+ CLKGEN: Si570 Clock Generator, I2C chip
+	+ CLKGEN: Si570 Clock Generator, I2C chip (ZC702, ZC706)
 	+ GPIO: On-Chip general purpose I/O peripheral
-	+ RTC: RTC-8564JE, I2C RTC chip
+	+ RTC: RTC-8564JE, I2C RTC chip (ZC702, ZC702), DS1337 (mini-itx)
 	+ SWDT: On-Chip System Watchdog Timer
 	+ UART: On-Chip UART
-	+ XADC: On-Chip analog-to-digital converter
 
 
 3.2 Unsupported Features
@@ -74,22 +82,11 @@ the corresponding h/w features exist.
 
 The following features are not supported and validated:
 
-  o General Platform
-	x CPU FREQ
-	x DVFS
-	x KEXEC/KDUMP
-	x KGDBoE
-
   o Bus
-	x PCIe: On-Chip PCIe controller (ZC706)
 	x CAN
-
-  o Storage
-	x NOR Flash:
-		x QSPI NOR Flash: Micron/Numonyx N25Q128A, 128Mbit (ZC702)
-
-  o Misc Devices
-	x HDMI: On-Chip HDMI controller (ZC702)
+	x DRM Graphic: Xylon logiCVC video controller
+	x XADC: On-Chip analog-to-digital converter
+	x HDMI: ADV7511 HDMI transmitter (MicroZed excluded)
 
 
 4. BSP Notes
@@ -111,6 +108,26 @@ For ZYNQ ZC706 board:
 	BootLoader:            U-Boot
 	BootLoader Version:    U-Boot 2013.07
 
+For ZYNQ ZC702 board:
+
+	Processor:             ZYNQ XC7Z020
+	Board Revision:        HW-Z7-ZC702 REV 1.2
+	BootLoader:            U-Boot
+	BootLoader Version:    U-Boot 2013.07
+
+For ZYNQ Microzed board:
+
+	Processor:             ZYNQ XC7Z010
+	Board Revision:        REV F01
+	BootLoader:            U-Boot
+	BootLoader Version:    U-Boot 2013.01
+
+For ZYNQ Mini-ITX board:
+
+	Processor:             ZYNQ XC7Z045
+	Board Revision:        CPU board: Rev 3, Base board: Mini-ITX-7Z-PCB-E
+	BootLoader:            U-Boot
+	BootLoader Version:    U-Boot 2014.01
 
 4.1.2 Specify boot medium
 -------------------------
@@ -149,6 +166,92 @@ Shift SW11 setting to 00010 in order to boot from QSPI Flash:
 	SW11.5 = OFF
 
 
+4.1.2.2 HW-Z7-ZC702 REV 1.1
+---------------------------
+
+1. Booting from SD card
+
+The SW16 on the front panel is used for the configuration of booting sequence,
+the default setting (00110) specifies to boot from the SD card:
+
+	SW16.1 = OFF
+	SW16.2 = OFF
+	SW16.3 = ON
+	SW16.4 = ON
+	SW16.5 = OFF
+
+2. Booting from QSPI flash
+
+Shift SW16 setting to 00010 in order to boot from QSPI Flash:
+
+	SW16.1 = OFF
+	SW16.2 = OFF
+	SW16.3 = OFF
+	SW16.4 = ON
+	SW16.5 = OFF
+
+
+4.1.2.3 Microzed REV F01
+------------------------
+
+The Microzed board provides jumpers(JP1, JP2 and JP3) to select
+the boot devices.
+
+1. Booting from SD card
+
+The jumper configuration for booting from SD card is:
+
+	JP3 2-3
+	JP2 2-3
+	JP1 1-2
+
+2. Booting from QSPI flash
+
+The jumper configuration for booting from the QSPI flash is:
+
+	JP3 2-3
+	JP2 1-2
+	JP1 1-2
+
+3. Booting from JTAG
+
+	JP3 1-2
+	JP2 1-2
+	JP1 1-2
+
+
+4.1.2.4 Mini-ITX-7Z-PCB-E
+-------------------------
+
+In the default, Setting the jumper as the following:
+
+	JP1  1-2
+	JP7  3-4
+	JP12 1-2
+
+Note: PCIe needs JP12 set to 2-3.
+
+1. Booting from SD card
+
+The default SW7 setting (00110) specifies to boot from the SD card:
+
+	SW7.1 = OFF
+	SW7.2 = OFF
+	SW7.3 = ON
+	SW7.4 = ON
+	SW7.5 = OFF
+
+2. Booting from QSPI flash
+
+Shift SW7 setting to 00010 in order to boot from QSPI Flash:
+
+	SW7.1 = OFF
+	SW7.2 = OFF
+	SW7.3 = OFF
+	SW7.4 = ON
+	SW7.5 = OFF
+
+
 4.1.3 Jumper settings for various USB modes
 -------------------------------------------
 
@@ -181,3 +284,42 @@ For OTG mode:
 	J49 1-2
 	J50 2-3
 	J51 1-2
+
+
+4.1.3.2 HW-Z7-ZC702 REV 1.1
+---------------------------
+
+The USB interface on the ZC702 board supports the host, peripheral and otg
+modes, controlled by relevant jumper configurations illustrated below:
+
+For host mode:
+
+	J7 ON
+	J33 2-3
+	J34 2-3
+	J35 1-2
+	J36 1-2
+
+For device mode:
+
+	J7 OFF
+	J33 1-2
+	J34 2-3
+	J35 1-2
+	J36 1-2
+
+For OTG mode:
+
+	J7 ON
+	J33 2-3
+	J34 1-2
+	J35 1-2
+	J36 1-2
+
+
+4.1.4 Jumper settings for PCIE for the Mini-ITX board
+-----------------------------------------------------
+
+	JP1  1-2
+	JP7  3-4
+	JP12 2-3

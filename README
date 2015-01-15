@@ -27,7 +27,7 @@ is done automatically when using the Wind River configure wrapper.
 
 License
 -------
-Copyright (C) 2014 Wind River Systems, Inc.
+Copyright (C) 2015 Wind River Systems, Inc.
 
 The right to copy, distribute or otherwise make use of this software may
 be licensed only pursuant to the terms of an applicable Wind River license
@@ -60,7 +60,8 @@ following commands:
 	# make kds
 	# make zynq-<Board Name>.dtb
 
-Note: <Board Name> can be one of the ZYNQ boards' name, such as zc706 or zc702.
+Note: <Board Name> can be one of the ZYNQ boards' name, such as zc706, zc702,
+zynq-zed or zynq-mini-itx-adv7511.
 
 The DTB can then be found in the
   build/linux-windriver/linux-<board>-<kernel type>-build/arch/arm/boot/dts/
@@ -99,6 +100,12 @@ Suppose the device node for MMC/SD card on the host machine is the
 The BOOT.BIN file can be downloaded from the XILINX's website at
 http://www.wiki.xilinx.com/Zynq+14.7-2013.3+Release
 
+The BOOT.BIN for the mini-itx can be found at
+http://zedboard.org/support/design/2056/17. Since the bitstream for
+PCIe support is different from non-PCIe features, both the BOOT.BIN
+must be replaced and the jumpers set. Please see the bootloader's
+README for additional details.
+
 	# mkdir /mnt/sd
 	# mount -t vfat /dev/mmcblk0p1 /mnt/sd
 	# cp BOOT.BIN /mnt/sd
@@ -136,14 +143,18 @@ instance, ext3 and mount it and deploy the root filesystem image there:
 To boot from MMC/SD card, please use u-boot's commands as follows:
 
 	# mmcinfo
-	# fatload mmc 0 0x1000000 devicetree.dtb
-	# fatload mmc 0 0x10600000 uImage
+	# fatload mmc 0 0x2a00000 devicetree.dtb
+	# fatload mmc 0 0x3000000 uImage
 	# setenv bootargs console=ttyPS0,115200 earlyprintk root=/dev/mmcblk0p2 ro rootwait
-	# bootm 0x10600000 - 0x1000000
+	# bootm 0x3000000 - 0x2a00000
 
 
 3.2 Boot kernel from QSPI Flash
 -------------------------------
+
+Since not all uboot versions support QSPI flash, use
+<build project>layers/wr-bsps/xilinx-zynq/bootloader/boot_mini-itx-pcie.bin
+to ensure that the mini-itx board can boot from QSPI.
 
 3.2.1 QSPI Flash layout
 -----------------------
@@ -157,6 +168,15 @@ partitions have been created on it:
 	0x600000		0x620000	qspi-device-tree
 	0x620000		0xc00000	qspi-rootfs
 	0xc00000		0x1000000	qspi-bitstream
+
+Note: The Mini-ITX board has a 32MB QSPI flash with the bootloader requiring
+a 16MB partition for BOOT.BIN.
+
+	Start			End		Definition
+	0x0			0x1000000	qspi-fsbl-uboot
+	0x1000000		0x1500000	qspi-linux
+	0x1500000		0x1600000	qspi-device-tree
+	0x1600000		0x2000000	qspi-rootfs
 
 Be extra careful not to touch bootloader partition about FSBL and u-boot. If
 needed, you can alter the layout of the rest of QSPI Flash. In addition, you
@@ -174,6 +194,10 @@ Then re-generate the DTB image as described previously.
 	# mmcinfo
 	# fatload mmc 0 0x100000 BOOT.BIN
 	# sf probe 0
+	For the Mini-ITX board:
+	# sf erase 0 0x1000000
+	# sf write 0x100000 0 ${filesize}
+	Others board:
 	# sf erase 0 0x100000
 	# sf write 0x100000 0 ${filesize}
 
@@ -188,23 +212,47 @@ variable, which can be leveraged later.
 ---------------------------------------------------
 
 	# mmcinfo
-	# fatload mmc 0 0x100000 devicetree.dtb
+	# fatload mmc 0 0x2a00000 devicetree.dtb
 	# sf probe 0
+	For the Mini-ITX board:
+	# sf erase 0x1600000 0x100000
+	# sf write 0x2a00000 0x1600000 ${filesize}
+	Others board:
 	# sf erase 0x600000 0x20000
-	# sf write 0x100000 0x600000 ${filesize}
+	# sf write 0x2a00000 0x600000 ${filesize}
 
 
 3.2.4 Copy kernel image
 -----------------------
 
 	# mmcinfo
-	# fatload mmc 0 0x100000 uImage
+	# fatload mmc 0 0x3000000 uImage
 	# sf probe 0
+	For the Mini-ITX board:
+	# sf erase 0x1100000 0x500000
+	# sf write 0x3000000 0x1100000 ${filesize}
+	Others board:
 	# sf erase 0x100000 0x500000
-	# sf write 0x100000 0x100000 ${filesize}
+	# sf write 0x3000000 0x100000 ${filesize}
 
 
-3.2.5 Target Note
+3.2.5 Booting the kernel image
+-----------------------------
+
+	For the Mini-ITX board:
+	# sf probe 0
+	# sf read 0x2a00000 0x1600000 0x100000
+	# sf read 0x3000000 0x1100000 0x500000
+	# bootm 0x3000000 - 0x2a00000
+
+	Others board:
+	# sf probe 0
+	# sf read 0x2a00000 0x600000 0x20000
+	# sf read 0x3000000 0x100000 0x500000
+	# bootm 0x3000000 - 0x2a00000
+
+
+3.2.6 Target Note
 -----------------
 
 Since the size of the qspi-rootfs partition is no more than 8MB, unable to
@@ -232,9 +280,9 @@ To boot from NFS rootfs, please use u-boot's commands as follows:
 	# setenv serverip 192.168.1.1
 	# setenv rootpath /nfsexport
 	# setenv bootargs console=ttyPS0,115200 earlyprintk root=/dev/nfs rw nfsroot=$serverip:$rootpath ip=dhcp
-	# tftp 0x10600000 uImage-xilinx-zynq.bin
-	# tftp 0x1000000 uImage-zynq-<Board Name>.dtb
-	# bootm 0x10600000 - 0x1000000
+	# tftpboot 0x3000000 uImage-xilinx-zynq.bin
+	# tftpboot 0x2a00000 uImage-zynq-<Board Name>.dtb
+	# bootm 0x3000000 - 0x2a00000
 
 
 4. Features
@@ -267,15 +315,15 @@ for various USB modes.
 
 Modify dtb for OTG mode in booting step
 
-	# tftp 0x1000000 devicetree.dtb
-	# fdt addr 0x1000000
+	# tftp 0x2a00000 devicetree.dtb
+	# fdt addr 0x2a00000
 	# fdt set /amba/ps7-usb dr_mode otg
 
 Plug in a B cable and connect to the host machine to verify the OTG device mode.
 
 Then replace the B cable with the A cable and enable OTG VBUS in linux as follows:
 
-	# cd /sys/devices/amba.0/e0002000.ps7-usb/xusbps-otg.0/inputs
+	# cd /sys/devices/amba.0/e0002000.ps7-usb/zynq-otg.0/inputs
 	# echo 1 > a_bus_req
 
 2. Enable USB Device mode
@@ -291,3 +339,36 @@ to:
 Then re-generate the DTB image as described previously. Use the new DTB image
 to boot the board and plug in a B cable and connect to the host machine
 to verify the device mode.
+
+
+4.2 PCIE(Mini-ITX)
+------------------
+
+1. Get the BOOT.bin
+
+The Mini-ITX board needs an special BOOT.BIN to support the PCIe support, which can be
+downloaded from the Mini-ITX's website at:
+
+http://zedboard.org/support/design/2056/17
+
+Or
+
+${build project}/layers/wr-bsps/xilinx-zynq/bootloader/
+
+2. Setting the jumper
+
+	JP1  1-2
+	JP7  3-4
+	JP12 2-3
+
+3. Enter the following command to copy the BOOT.bin image to the SD/MMC card:
+
+	$ sudo cp -rf boot_mini-itx-pcie.bin /mnt/sd/boot.bin
+
+4. Using uImage-zynq-mini-itx-adv7511-pcie.dtb for the boot dtb
+
+
+4.3 RTC, Audio for mini-itx
+---------------------------
+
+Please refer to bootloader/README

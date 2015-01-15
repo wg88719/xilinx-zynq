@@ -1,0 +1,48 @@
+NOTE: The files contained in this directory are provided "as is".
+There is no warranty of fitness for any purpose or support provided
+by Wind River for BOOT.bin.
+---
+
+This directory contains the prebuild two BOOT.bin images which are built
+u-boot, fsbl and bitstream.
+
+boot_mini-itx.bin
+boot_mini-itx-pcie.bin	---- For PCIe hardware bitstream BOOT.BIN
+
+The boot_mini-itx.bin support HDMI, Audio, RTC and so on, But it do not
+support the PCIE. The boot_mini-itx-pcie.bin include the PCIE bitstream,
+So It can support the PCIe feature, But It do not support HDMI, Audio, RTC
+and so on.
+
+Update BOOT.bin:
+=============
+
+1. non-PCIE BOOT.bin
+--------------------
+
+(1) In the default, Setting the jumper as the following:
+
+	JP1  1-2
+	JP7  3-4
+	JP12 1-2
+
+(2) Copy BOOT.bin to SD/MMC
+
+        $ sudo cp -rf boot_mini-itx.bin /mnt/sd/boot.bin
+
+(3) Using uImage-zynq-mini-itx-adv7511.dtb for the boot dtb
+
+2. The PCIE BOOT.bin
+--------------------
+
+(1) Setting the jumper
+
+	JP1  1-2
+	JP7  3-4
+	JP12 2-3
+
+(2) Enter the following command to copy the BOOT.bin image to the SD/MMC card:
+
+	$ sudo cp -rf boot_mini-itx-pcie.bin /mnt/sd/boot.bin
+
+(3) Using uImage-zynq-mini-itx-adv7511-pcie.dtb for the boot dtb

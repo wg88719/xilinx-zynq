@@ -372,3 +372,43 @@ ${build project}/layers/wr-bsps/xilinx-zynq/bootloader/
 ---------------------------
 
 Please refer to bootloader/README
+
+
+4.4 Audio
+---------
+
+4.4.1 Audio playback(ADAU1761)
+------------------------------
+
+Headphone out:
+	# amixer cset name='Headphone Playback Volume' 57,57 -c1
+	# amixer cset name='DAC Playback Mux' 0 -c1
+	# amixer cset name='Right Playback Mixer Left DAC Switch' 1 -c1
+	# amixer cset name='Right Playback Mixer Right DAC Switch' 1 -c1
+	# amixer cset name='Left Playback Mixer Left DAC Switch' 1 -c1
+	# amixer cset name='Left Playback Mixer Right DAC Switch' 1 -c1
+        # speaker-test -c2 -twav -Dplughw:ADAU1761
+
+Line out:
+
+	# amixer cset name='DAC Playback Mux' 0 -c1
+	# amixer cset name='Right Playback Mixer Left DAC Switch' 1 -c1
+	# amixer cset name='Right Playback Mixer Right DAC Switch' 1 -c1
+	# amixer cset name='Left Playback Mixer Left DAC Switch' 1 -c1
+	# amixer cset name='Left Playback Mixer Right DAC Switch' 1 -c1
+	# amixer cset name='Left LR Playback Mixer Left Volume' 2 -c1
+	# amixer cset name='Left LR Playback Mixer Right Volume' 2 -c1
+	# amixer cset name='Right LR Playback Mixer Left Volume' 2 -c1
+	# amixer cset name='Right LR Playback Mixer Right Volume' 2 -c1
+	# amixer cset name='Lineout Playback Volume' 57,57 -c1
+	# speaker-test -c2 -twav -Dplughw:ADAU1761
+
+4.4.2 Audio HDMI playback
+-------------------------
+
+Connect the board and a HDMI display with a HDMI cable,
+then enable fbdev HDMI.
+
+Play the recorded audio messages:
+
+        # speaker-test -c2 -twav

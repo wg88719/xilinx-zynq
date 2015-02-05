@@ -46,3 +46,16 @@ Update BOOT.bin:
 	$ sudo cp -rf boot_mini-itx-pcie.bin /mnt/sd/boot.bin
 
 (3) Using uImage-zynq-mini-itx-adv7511-pcie.dtb for the boot dtb
+
+3. Using the latest BOOT.bin for zc702 TRD
+------------------------------------------
+
+Please download the trd file from the following website:
+
+http://www.wiki.xilinx.com/Zynq+Base+TRD+2014.4
+
+Or using bootloader in this folder directly as follows :
+
+(1) Please deploy boot_zc702_trd.bin into SD card to boot the board.
+
+(2) Using uImage-zynq-zc702-base-trd.dtb to boot TRD in path_to_project/export

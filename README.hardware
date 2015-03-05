@@ -87,6 +87,7 @@ the corresponding h/w features exist.
 	+ XADC: On-Chip analog-to-digital converter
 	+ HDMI: ADV7511 HDMI transmitter (ZC702, Mini-ITX)
 	+ UART: On-Chip UART
+	+ Silicon LIB SI570(ZC702 only)
 
 
 3.2 Unsupported Features
@@ -98,7 +99,7 @@ The following features are not supported and validated:
 	x Devices fanned out from PL other than some listed above.
 
   o Bus
-	x CAN
+	x CAN (ZC702)
 
 3.3 Integrated and non-validated Features
 =========================================

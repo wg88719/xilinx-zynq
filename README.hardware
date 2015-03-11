@@ -18,6 +18,7 @@ This BSP supports the following boards:
   + XILINX ZYNQ ZC702 Board  : XC7Z020 processor, Rev 1.1 board.
   + Avnet Microzed Board     : XC7Z010 processor, Rev F01 board.
   + Avnet Mini-ITX Board     : XC7Z045 processor, Mini-ITX-7Z-PCB-E, REV C
+  + Avnet Picozed board      : XC7Z030/20/15/10 processor, REV C
 
 
 2. Change History
@@ -30,6 +31,9 @@ This BSP supports the following boards:
   - 2015/01 (US42598)
 	Wind River Linux 7.0 Async: Add multimedia support for the u-boot embedded
 	with the related bit stream for PL.
+
+  - 2015/03 (US42598)
+	Wind River Linux 7.0 Async: Add Picozed board support
 
 
 3. BSP Features
@@ -106,6 +110,7 @@ The following features are not supported and validated:
 
   o Multimedia
 	x DRM (ZC702)
+	x UIO (Mostly fanned out from PL)
 
 
 4. BSP Notes
@@ -147,6 +152,13 @@ For ZYNQ Mini-ITX board:
 	Board Revision:        CPU board: Rev 3, Base board: Mini-ITX-7Z-PCB-E
 	BootLoader:            U-Boot
 	BootLoader Version:    U-Boot 2014.01
+
+For ZYNQ Picozed board:
+
+	Processor:             ZYNQ XC7Z030/20/15/10
+	Board Revision:        CPU board: Rev C, Base board: MBCC-PZCC-PCB-C
+	BootLoader:            U-Boot
+	BootLoader Version:    U-Boot 2014.01-dirty (Sep 29 2014 - 09:07:05)
 
 4.1.2 Specify boot medium
 -------------------------
@@ -354,3 +366,52 @@ bit stream possibly by bootloader into PL catering for some specific apps.
 
 So it is very important to make sure the proper PL's code embedded-in for the
 related application testing.
+
+
+4.1.6 Picozed cpu board(30/20/15/10) notes:
+-------------------------------------------
+
+As described from PicoZed technical specifications, the main differences
+are user io port as follows:
+
+7Z010 Version
+  * 113 User I/O (100 PL, 13 PS MIO)
+  * PL I/O configurable as up to 48 LVDS pairs or 100 single-ended I/O
+7Z015 Version
+  * 148 User I/O (135 PL, 13 PS MIO)
+  * PL I/O configurable as up to 65 LVDS pairs or 135 single-ended I/O
+  * 4 GTP Transceivers
+7Z020 Version
+  * 138 User I/O (125 PL, 13 PS MIO)
+  * PL I/O configurable as up to 60 LVDS pairs or 125 single-ended I/O
+7Z030 Version
+  * 148 User I/O (135 PL, 13 PS MIO)
+  * PL I/O configurable as up to 65 LVDS pairs or 135 single-ended I/O
+  * 4 GTX Transceivers
+
+Please refer to technical specifications part in the following website
+for more information:
+
+  http://zedboard.org/product/picozed
+
+
+4.1.7 dtb notes:
+----------------
+
+There are six dtbs in path_to_project/export, as follows:
+
+  xilinx-zynq-zynq-mini-itx-adv7511-pcie.dtb-WR7.0.0.0_preempt-rt
+  xilinx-zynq-zynq-mini-itx-adv7511.dtb-WR7.0.0.0_preempt-rt
+  xilinx-zynq-zynq-zc702-base-trd.dtb-WR7.0.0.0_preempt-rt
+  xilinx-zynq-zynq-zc702.dtb-WR7.0.0.0_preempt-rt
+  xilinx-zynq-zynq-zc706.dtb-WR7.0.0.0_preempt-rt
+  xilinx-zynq-zynq-zed.dtb-WR7.0.0.0_preempt-rt
+
+Which are used to boot the board as the following matches:
+
+  *mini-itx-adv7511-pcie.dtb* for Mini-itx with PCIe enablement.
+  *mini-itx-adv7511.dtb* for Mini-itx without PCIe enablement.
+  *zc702-base-trd.dtb* for ZC702 board with TRD validation.
+  *zc702.dtb* for ZC702 board without TRD validation.
+  *zc706.dtb* for ZC706 board
+  *zed.dtb* for both Picozed and Microzed.

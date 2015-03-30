@@ -403,6 +403,10 @@ Line out:
 	# amixer cset name='Lineout Playback Volume' 57,57 -c1
 	# speaker-test -c2 -twav -Dplughw:ADAU1761
 
+Note:
+
+There are two items for DAC Playback, make sure AIFIN for both above.
+
 4.4.2 Audio HDMI playback
 -------------------------
 

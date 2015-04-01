@@ -406,6 +406,7 @@ There are six dtbs in path_to_project/export, as follows:
   xilinx-zynq-zynq-zc702.dtb-WR7.0.0.0_preempt-rt
   xilinx-zynq-zynq-zc706.dtb-WR7.0.0.0_preempt-rt
   xilinx-zynq-zynq-zed.dtb-WR7.0.0.0_preempt-rt
+  xilinx-zynq-zynq-picozed.dtb-WR7.0.0.0_preempt-rt
 
 Which are used to boot the board as the following matches:
 
@@ -414,4 +415,5 @@ Which are used to boot the board as the following matches:
   *zc702-base-trd.dtb* for ZC702 board with TRD validation.
   *zc702.dtb* for ZC702 board without TRD validation.
   *zc706.dtb* for ZC706 board
-  *zed.dtb* for both Picozed and Microzed.
+  *zed.dtb* for Microzed.
+  *picozed.dtb* for Picozed.

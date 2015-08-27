@@ -24,6 +24,9 @@ This BSP supports the following boards:
 2. Change History
 =================
 
+  - 2015/09 (US65230): Wind River Linux 7.0 RCPL09, update latest PCIe driver
+                       Based on mainline v3.18.
+
   - 2015/01 (US42598) 
 	Wind River Linux 7.0 Async: Initial standard and preempt-rt support
 	for Mini-ITX, ZC702, ZC706, and Microzed board support

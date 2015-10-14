@@ -1,3 +1,7 @@
-IMAGE_INSTALL += "sysprof"
-IMAGE_INSTALL += "i2c-tools"
-IMAGE_INSTALL += "alsa-utils"
+XILINX-ZYNQ-IMAGE-INSTALL = " \
+sysprof \
+i2c-tools \
+alsa-utils \
+"
+
+IMAGE_INSTALL += "${@bb.utils.contains('MACHINE', 'xilinx-zynq', '${XILINX-ZYNQ-IMAGE-INSTALL}', '', d)}"

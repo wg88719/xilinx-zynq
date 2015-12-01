@@ -3,20 +3,18 @@ There is no warranty of fitness for any purpose or support provided
 by Wind River for BOOT.bin.
 ---
 
-This directory contains the prebuild BOOT.bin images which are built
+This directory contains the prebuild two BOOT.bin images which are built
 u-boot, fsbl and bitstream.
 
-Micro_boot.bin - Microzed boot.bin
-Pico_BOOT_SD.BIN - Picozed boot.bin
-boot_mini-itx.bin - mini-itx boot.bin
-boot_mini-itx-pcie.bin	---- mini-itx boot.bin with pcie supported
+boot_mini-itx.bin
+boot_mini-itx-pcie.bin	---- For PCIe hardware bitstream BOOT.BIN
 
 The boot_mini-itx.bin support HDMI, Audio, RTC and so on, But it do not
 support the PCIE. The boot_mini-itx-pcie.bin include the PCIE bitstream,
 So It can support the PCIe feature, But It do not support HDMI, Audio, RTC
 and so on.
 
-Update mini-itx BOOT.bin:
+Update BOOT.bin:
 =============
 
 1. non-PCIE BOOT.bin

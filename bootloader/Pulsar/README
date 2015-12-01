@@ -1,0 +1,11 @@
+This directory contains the prebuild BOOT.bin images:
+
+BOOT-MITX7045.BIN ---> mini-itx 7045 boot.bin with pcie supported
+BOOT-MITX7100.BIN ---> mini-itx 7100 boot.bin 
+BOOT-MZ7010.BIN   ---> Microzed 7010 boot.bin
+BOOT-MZ7020.BIN   ---> Microzed 7020 boot.bin
+BOOT-PZ7010.BIN   ---> Picozed 7010 boot.bin
+BOOT-PZ7015.BIN   ---> Picozed 7015 boot.bin
+BOOT-PZ7020.BIN   ---> Picozed 7020 boot.bin
+BOOT-PZ7030.BIN   ---> Picozed 7030 boot.bin
+
